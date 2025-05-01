@@ -1,20 +1,6 @@
 {
-  "functions": {
-    "api/new-session.ts": {
-      "runtime": "edge"
-    },
-    "api/generate-round.ts": {
-      "runtime": "edge",
-      "maxDuration": 10
-    }
-  },
   "routes": [
-    {
-      "src": "/api/(.*)",
-      "dest": "/api/$1.ts"
-    },
-    {
-      "handle": "filesystem"
-    }
+    { "src": "/api/(.*)", "dest": "/api/$1.ts" },
+    { "handle": "filesystem" }
   ]
 }
