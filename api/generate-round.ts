@@ -1,9 +1,6 @@
 import { kv } from '@vercel/kv';
 import { makeDuos } from '../utils/pairings';
 
-// ⚠️  Cambiamos el runtime a Node, igual que arriba
-export const config = { runtime: 'nodejs20.x' };
-
 export default async function handler(req: Request) {
   if (req.method !== 'POST')
     return new Response('Only POST', { status: 405 });
