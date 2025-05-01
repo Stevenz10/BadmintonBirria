@@ -1,7 +1,8 @@
 import { kv } from '@vercel/kv';
 import { makeDuos } from '../utils/pairings';
 
-export const config = { runtime: 'edge', maxDuration: 10 };
+// ⚠️  Cambiamos el runtime a Node, igual que arriba
+export const config = { runtime: 'nodejs20.x' };
 
 export default async function handler(req: Request) {
   if (req.method !== 'POST')
@@ -15,7 +16,6 @@ export default async function handler(req: Request) {
   const hist = rawHist ? JSON.parse(rawHist) : {};
 
   const { duos, newHist } = makeDuos(players, hist);
-
   await kv.hset(`session:${sessionId}`, { history: JSON.stringify(newHist) });
 
   return new Response(JSON.stringify({ duos }), {
