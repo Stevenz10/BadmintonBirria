@@ -1,237 +1,393 @@
 <!DOCTYPE html>
 <html lang="es">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Generador de duplas – Bádminton</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-  </head>
-  <body class="bg-gray-100 min-h-screen flex flex-col items-center p-4">
-    <h1 class="text-2xl font-bold mb-4">Generador de duplas – Bádminton</h1>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Generador de Duplas – Bádminton</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    /* Tailwind custom additions */
+    .card:hover { @apply shadow-xl -translate-y-0.5 transition; }
+  </style>
+</head>
+<body class="bg-gradient-to-br from-teal-100 via-sky-100 to-fuchsia-100 min-h-screen flex flex-col items-center p-4 gap-6">
+  <header class="text-center">
+    <h1 class="text-3xl font-extrabold tracking-tight text-gray-800 drop-shadow-sm">Generador de Duplas – Bádminton</h1>
+    <p class="text-sm text-gray-600 mt-1">Gestiona rondas equilibradas y visualiza combinaciones pendientes.</p>
+  </header>
 
-    <!-- Sección: Añadir jugador -->
-    <section id="add-player" class="bg-white shadow-md rounded-2xl p-4 w-full max-w-md mb-6">
-      <h2 class="text-lg font-semibold mb-2">Añadir jugador</h2>
-      <div class="flex flex-col gap-2">
-        <input id="player-name" type="text" placeholder="Nombre" class="border rounded-xl p-2" />
-        <button id="btn-add" class="bg-blue-600 text-white rounded-xl p-2 active:scale-95">Añadir</button>
+  <!-- 1. Añadir jugador / Presets -->
+  <section class="card bg-white rounded-2xl p-6 w-full max-w-md">
+    <h2 class="text-xl font-semibold mb-4 flex items-center gap-2"><span class="i-lucide-user-plus"></span>Añadir jugador</h2>
+    <div class="flex flex-col gap-3">
+      <label class="text-sm text-gray-600" for="player-name">Nombre</label>
+      <input id="player-name" list="players-list" placeholder="Nombre del jugador" class="border rounded-xl p-3 focus:ring focus:ring-blue-300" />
+      <datalist id="players-list"></datalist>
+      <div class="flex gap-2">
+        <button id="btn-add" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white rounded-xl p-3 text-sm font-medium">Añadir</button>
+        <button id="toggle-presets" class="bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-xl p-3 text-sm font-medium">Presets</button>
       </div>
-    </section>
+    </div>
+    <div id="preset-list" class="hidden mt-4">
+      <p class="text-xs text-gray-500 mb-2">Jugadores frecuentes:</p>
+      <div class="grid grid-cols-2 sm:grid-cols-3 gap-2" id="preset-buttons"></div>
+    </div>
+  </section>
 
-    <!-- Lista de jugadores -->
-    <section id="player-list" class="bg-white shadow-md rounded-2xl p-4 w-full max-w-md mb-6 hidden">
-      <h2 class="text-lg font-semibold mb-2">Jugadores</h2>
-      <ul id="list" class="space-y-1 text-sm"></ul>
-    </section>
+  <!-- 2. Lista de jugadores -->
+  <section id="player-list" class="hidden card bg-white rounded-2xl p-6 w-full max-w-md">
+    <h2 class="text-xl font-semibold mb-4">Jugadores</h2>
+    <ul id="list" class="space-y-2 text-base"></ul>
+  </section>
 
-    <!-- Controles y ronda actual -->
-    <section id="round-controls" class="bg-white shadow-md rounded-2xl p-4 w-full max-w-md mb-6 hidden">
-      <div class="flex justify-between items-center mb-4">
-        <h2 id="round-title" class="text-lg font-semibold text-gray-600 italic">Sin ronda generada</h2>
-        <div class="space-x-2">
-          <button id="next" class="bg-green-500 text-white rounded-xl px-3 py-1">Generar ronda</button>
-          <button id="delete-round" class="bg-yellow-500 text-white rounded-xl px-3 py-1">Borrar ronda</button>
-          <button id="reset" class="bg-red-500 text-white rounded-xl px-3 py-1">Resetear</button>
-        </div>
+  <!-- 3. Ronda actual y controles -->
+  <section id="round-controls" class="hidden card bg-white rounded-2xl p-6 w-full max-w-md">
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
+      <h2 id="round-title" class="text-lg font-semibold text-gray-600 italic">Sin ronda generada</h2>
+      <div class="flex flex-wrap gap-2 justify-center">
+        <button id="next" class="bg-green-600 hover:bg-green-700 text-white rounded-xl px-4 py-2 text-sm font-medium">Generar ronda</button>
+        <button id="delete-round" class="bg-yellow-500 hover:bg-yellow-600 text-white rounded-xl px-4 py-2 text-sm font-medium">Borrar ronda</button>
+        <button id="reset" class="bg-red-600 hover:bg-red-700 text-white rounded-xl px-4 py-2 text-sm font-medium">Resetear</button>
+        <button id="show-matrix" class="bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl px-4 py-2 text-sm font-medium">Combinaciones</button>
       </div>
-      <div class="overflow-x-auto">
-        <table id="pairings-table" class="w-full text-sm text-center border-collapse"></table>
-      </div>
-    </section>
+    </div>
+    <div class="overflow-x-auto">
+      <table id="pairings-table" class="w-full text-sm text-center border-collapse"></table>
+    </div>
+  </section>
 
-    <!-- Historial -->
-    <section id="history-section" class="bg-white shadow-md rounded-2xl p-4 w-full max-w-md mb-6 hidden">
-      <h2 class="text-lg font-semibold mb-2">Rondas anteriores</h2>
-      <div id="history-list" class="space-y-3 max-h-60 overflow-y-auto"></div>
-    </section>
+  <!-- 4. Historial -->
+  <section id="history-section" class="hidden card bg-white rounded-2xl p-6 w-full max-w-md">
+    <h2 class="text-xl font-semibold mb-4">Rondas anteriores</h2>
+    <div id="history-list" class="space-y-4 max-h-64 overflow-y-auto pr-1"></div>
+  </section>
 
-    <script>
-      /******************** Referencias DOM ********************/
-      const nameInput = document.getElementById("player-name");
-      const btnAdd = document.getElementById("btn-add");
-      const playerListEl = document.getElementById("player-list");
-      const listEl = document.getElementById("list");
-      const roundControls = document.getElementById("round-controls");
-      const roundTitle = document.getElementById("round-title");
-      const pairTable = document.getElementById("pairings-table");
-      const nextBtn = document.getElementById("next");
-      const deleteRoundBtn = document.getElementById("delete-round");
-      const resetBtn = document.getElementById("reset");
-      const historySection = document.getElementById("history-section");
-      const historyList = document.getElementById("history-list");
+  <!-- 5. Matriz de combinaciones -->
+  <section id="matrix-section" class="hidden card bg-white rounded-2xl p-6 w-full w-max overflow-x-auto">
+    <h2 class="text-xl font-semibold mb-4">Matriz de combinaciones pendientes</h2>
+    <p class="text-xs text-gray-500 mb-3">✔ = ya jugaron juntos · ✖ = pendiente</p>
+    <table id="matrix-table" class="text-xs border-collapse"></table>
+  </section>
 
-      /******************** Estado ********************/
-      let players = JSON.parse(localStorage.getItem("players") || "[]");
-      let round = 0;
-      /** @type {{round:number,pairs:string[][],solo:string|null}[]} */
-      let history = JSON.parse(localStorage.getItem("history") || "[]");
-      let lastExtremes = null; // jugadores en duos 1‑2 y último‑2 de la ronda previa
+  <!-- ========= SCRIPT ========= -->
+  <script>
+    /* =================== Estado y utilidades =================== */
+    const DEFAULT_PRESETS = ["Pepito","Katy","Ng","Steven","Alex","Brando","Bethania","Michel","Kelvin","Kevin","Patricia"];
+    const qs = s => document.querySelector(s);
+    const qsa = s => document.querySelectorAll(s);
 
-      const saveState = () => {
-        localStorage.setItem("players", JSON.stringify(players));
-        localStorage.setItem("history", JSON.stringify(history));
-      };
+    // DOM refs
+    const nameInput       = qs('#player-name');
+    const btnAdd          = qs('#btn-add');
+    const datalistEl      = qs('#players-list');
+    const presetWrapper   = qs('#preset-buttons');
+    const togglePresets   = qs('#toggle-presets');
+    const presetList      = qs('#preset-list');
+    const listEl          = qs('#list');
+    const playerSection   = qs('#player-list');
+    const roundSection    = qs('#round-controls');
+    const roundTitle      = qs('#round-title');
+    const pairTable       = qs('#pairings-table');
+    const nextBtn         = qs('#next');
+    const deleteBtn       = qs('#delete-round');
+    const resetBtn        = qs('#reset');
+    const showMatrixBtn   = qs('#show-matrix');
+    const historyList     = qs('#history-list');
+    const matrixSection   = qs('#matrix-section');
+    const matrixTable     = qs('#matrix-table');
 
-      /******************** Render jugadores ********************/
-      function renderPlayers() {
-        if (players.length === 0) {
-          playerListEl.classList.add("hidden");
-          roundControls.classList.add("hidden");
-          historySection.classList.add("hidden");
-          return;
-        }
-        playerListEl.classList.remove("hidden");
-        listEl.innerHTML = "";
-        players.forEach((p, i) => {
-          const li = document.createElement("li");
-          li.className = "flex justify-between items-center bg-gray-50 rounded-xl p-2";
-          li.innerHTML = `<span>${i + 1}. ${p.name}</span>`;
-          const del = document.createElement("button");
-          del.textContent = "✕";
-          del.className = "text-red-500";
-          del.onclick = () => {
-            players.splice(i, 1);
-            saveState();
-            renderPlayers();
-          };
-          li.appendChild(del);
-          listEl.appendChild(li);
+    let players  = JSON.parse(localStorage.getItem('players')  || '[]');
+    let history  = JSON.parse(localStorage.getItem('history')  || '[]');
+    let stats    = JSON.parse(localStorage.getItem('stats')    || '{}');
+    let round    = history.length;
+    let lastExtremes = null;
+
+    const save = () => {
+      localStorage.setItem('players', JSON.stringify(players));
+      localStorage.setItem('history', JSON.stringify(history));
+      localStorage.setItem('stats',   JSON.stringify(stats));
+    };
+
+    /* =================== Promedio posiciones =================== */
+    function record(pairs, solo) {
+      const len = pairs.length;
+      pairs.forEach(([a, b], i) => {
+        const pos = i + 1;
+        [a, b].forEach(n => {
+          stats[n] = stats[n] || { sum: 0, count: 0 };
+          stats[n].sum   += pos;
+          stats[n].count += 1;
         });
-        const showControls = players.length >= 3;
-        roundControls.classList.toggle("hidden", !showControls);
-        historySection.classList.toggle("hidden", !showControls);
+      });
+      if (solo) {
+        stats[solo] = stats[solo] || { sum: 0, count: 0 };
+        stats[solo].sum   += len + 1;
+        stats[solo].count += 1;
       }
+    }
+    const avg = n => stats[n] ? (stats[n].sum / stats[n].count).toFixed(2) : '-';
 
-      /******************** Round‑Robin + verificación de extremos ********************/
-      function generatePairs(idx) {
-        const base = [...players];
-        const odd = base.length % 2 === 1;
-        if (odd) base.push({ name: "DESCANSO", bye: true });
-        const n = base.length;
-        const cycle = odd ? n : n - 1;
-        // Algoritmo círculo base
-        function circleStep(arr) {
-          const first = arr[0];
-          const rest = arr.slice(1);
-          return [first, rest[rest.length - 1], ...rest.slice(0, -1)];
-        }
-        let arrangement = base;
-        for (let i = 0; i < (idx % cycle); i++) arrangement = circleStep(arrangement);
+    /* =================== Render lista + presets =================== */
+    function updateDatalist() {
+      datalistEl.innerHTML = '';
+      players.forEach(p => {
+        const o = document.createElement('option');
+        o.value = p;
+        datalistEl.appendChild(o);
+      });
+    }
 
-        // Emparejar
-        const pairsAll = [];
-        let solo = null;
-        for (let i = 0; i < n / 2; i++) {
-          const a = arrangement[i];
-          const b = arrangement[n - 1 - i];
-          if (a.bye || b.bye) solo = a.bye ? b.name : a.name;
-          else pairsAll.push([a.name, b.name]);
-        }
-
-        // Necesitamos al menos 4 duos para aplicar la regla de extremos
-        if (pairsAll.length < 4) return { pairs: pairsAll, solo, extremes: null };
-
-        // Buscar un desplazamiento que cambie extremos
-        for (let shift = 0; shift < pairsAll.length; shift++) {
-          const ordered = pairsAll.slice(shift).concat(pairsAll.slice(0, shift));
-          const newExtremes = [
-            ...ordered[0],
-            ...ordered[1],
-            ...ordered[ordered.length - 2],
-            ...ordered[ordered.length - 1],
-          ].sort();
-          if (!lastExtremes || JSON.stringify(newExtremes) !== JSON.stringify(lastExtremes)) {
-            return { pairs: ordered, solo, extremes: newExtremes };
-          }
-        }
-        // Si no hay desplazamiento válido, devuelve como está
-        return { pairs: pairsAll, solo, extremes: [...pairsAll[0], ...pairsAll[1], ...pairsAll[pairsAll.length - 2], ...pairsAll[pairsAll.length - 1]].sort() };
+    function renderPlayers() {
+      if (!players.length) {
+        playerSection.classList.add('hidden');
+        roundSection.classList.add('hidden');
+        qs('#history-section').classList.add('hidden');
+        updateDatalist();
+        return;
       }
+      playerSection.classList.remove('hidden');
+      listEl.innerHTML = '';
+      players.forEach((p, i) => {
+        const li = document.createElement('li');
+        li.className = 'flex justify-between items-center bg-gray-50 rounded-xl p-2 hover:bg-gray-100';
+        li.innerHTML = `<span>${i + 1}. ${p} <span class='text-xs text-gray-500'>(prom: ${avg(p)})</span></span>`;
+        const del = document.createElement('button');
+        del.innerHTML = '&times;';
+        del.className = 'text-red-500 hover:text-red-700';
+        del.onclick = () => {
+          delete stats[p];
+          players.splice(i, 1);
+          updatePresetStyles();
+          save();
+          renderPlayers();
+          updateMatrixTable();
+        };
+        li.appendChild(del);
+        listEl.appendChild(li);
+      });
+      updateDatalist();
+      const show = players.length >= 3;
+      roundSection.classList.toggle('hidden', !show);
+      qs('#history-section').classList.toggle('hidden', !show);
+    }
 
-      /******************** Mostrar ronda ********************/
-      function showRound(pairs, solo) {
-        pairTable.innerHTML = "";
-        pairTable.innerHTML += "<tr><th class='border p-1'>#</th><th class='border p-1'>Dupla</th></tr>";
-        pairs.forEach((p, i) => {
-          pairTable.innerHTML += `<tr><td class='border p-1 font-medium'>Duo ${i + 1}</td><td class='border p-1'>${p[0]} + ${p[1]}</td></tr>`;
-        });
-        if (solo)
-          pairTable.innerHTML += `<tr><td class='border p-1 font-medium'>Solo</td><td class='border p-1 text-red-600'>${solo}</td></tr>`;
-      }
+    /* Preset buttons */
+    function buildPresetButtons() {
+      presetWrapper.innerHTML = '';
+      DEFAULT_PRESETS.forEach(name => {
+        const b = document.createElement('button');
+        b.textContent = name;
+        b.className = 'preset-button rounded-xl p-2 text-xs font-medium';
+        b.onclick = () => {
+          if (players.includes(name)) return;
+          players.push(name);
+          stats[name] = stats[name] || { sum: 0, count: 0 };
+          save();
+          renderPlayers();
+          updatePresetStyles();
+          updateMatrixTable();
+        };
+        presetWrapper.appendChild(b);
+      });
+      updatePresetStyles();
+    }
+    function updatePresetStyles() {
+      qsa('.preset-button').forEach(b => {
+        b.className = `preset-button rounded-xl p-2 text-xs font-medium ${players.includes(b.textContent) ? 'bg-red-300/70 hover:bg-red-400 text-white' : 'bg-green-200 hover:bg-green-300 text-gray-700'}`;
+      });
+    }
 
-      /******************** Historial ********************/
-      function renderHistory() {
-        historyList.innerHTML = "";
-        history.slice().reverse().forEach((h) => {
-          const div = document.createElement("div");
-          div.className = "border rounded-xl overflow-hidden";
-          let html = `<table class='w-full text-xs text-center border-collapse'><tr><th colspan='3' class='bg-gray-200 p-1'>Ronda ${h.round}</th></tr>`;
-          h.pairs.forEach((p, i) => {
-            html += `<tr><td class='border p-1 font-medium'>Duo ${i + 1}</td><td class='border p-1'>${p[0]}</td><td class='border p-1'>${p[1]}</td></tr>`;
-          });
-          if (h.solo) html += `<tr><td class='border p-1 font-medium'>Solo</td><td colspan='2' class='border p-1 text-red-600'>${h.solo}</td></tr>`;
-          html += "</table>";
-          div.innerHTML = html;
-          historyList.appendChild(div);
-        });
-      }
+    /* =================== Algoritmo de parejas =================== */
+    function generateRound(idx) {
+      const oddOriginal = players.length % 2 === 1;
+      let arr = [...players];
+      if (oddOriginal) arr.push('DESCANSO');
+      const n = arr.length;
 
-      /******************** Eventos ********************/
-      btnAdd.onclick = () => {
-        const name = nameInput.value.trim();
-        if (!name) return;
-        players.push({ name });
-        nameInput.value = "";
-        saveState();
-        renderPlayers();
-      };
+      // Outer shift solo cuando el nº es par
+      const outerShift = oddOriginal ? 0 : idx % n;
+      arr = arr.slice(outerShift).concat(arr.slice(0, outerShift));
 
-      nextBtn.onclick = () => {
-        if (players.length < 3) return;
-        const { pairs, solo, extremes } = generatePairs(round);
-        roundTitle.textContent = `Ronda (${round + 1}) actual`;
-        showRound(pairs, solo);
-        history.push({ round: round + 1, pairs, solo });
-        lastExtremes = extremes;
-        saveState();
-        renderHistory();
-        round++;
-      };
+      const cycle = n - 1;
+      const r = idx % cycle;
+      const rot = [arr[0], ...arr.slice(1).slice(r), ...arr.slice(1, 1 + r)];
 
-      deleteRoundBtn.onclick = () => {
-        if (!history.length) return;
-        if (prompt("Escribe SEGURO para borrar la última ronda") !== "SEGURO") return;
-        history.pop();
-        if (round > 0) round--;
-        lastExtremes = null;
-        saveState();
-        if (history.length) {
-          const last = history[history.length - 1];
-          roundTitle.textContent = `Ronda (${last.round}) actual`;
-          showRound(last.pairs, last.solo);
+      const pairs = [];
+      let solo = null;
+      for (let i = 0; i < n / 2; i++) {
+        const a = rot[i], b = rot[n - 1 - i];
+        if (a === 'DESCANSO' || b === 'DESCANSO') {
+          solo = a === 'DESCANSO' ? b : a;
         } else {
-          roundTitle.textContent = "Sin ronda generada";
-          pairTable.innerHTML = "";
+          pairs.push([a, b]);
         }
-        renderHistory();
-      };
+      }
 
-      resetBtn.onclick = () => {
-        if (prompt("Escribe SEGURO para borrar TODO") !== "SEGURO") return;
-        players = [];
-        history = [];
-        round = 0;
-        lastExtremes = null;
-        saveState();
-        pairTable.innerHTML = "";
-        roundTitle.textContent = "Sin ronda generada";
-        renderPlayers();
-        renderHistory();
+      // Fairness: desviación respecto a la media ideal
+      const npos = pairs.length + 1;
+      const mean = (npos + 1) / 2;
+      const avgOf = name => {
+        const st = stats[name] || { sum: 0, count: 0 };
+        return st.count ? st.sum / st.count : mean;
       };
+      pairs.sort((u, v) => {
+        const du = ((avgOf(u[0]) + avgOf(u[1])) / 2) - mean;
+        const dv = ((avgOf(v[0]) + avgOf(v[1])) / 2) - mean;
+        return dv - du; // peor primero
+      });
 
-      /******************** Init ********************/
+      let extremes = null;
+      if (pairs.length >= 3) {
+        extremes = [...pairs[0], ...pairs[1], ...pairs[pairs.length - 2], ...pairs[pairs.length - 1]].sort();
+      }
+      return { pairs, solo, extremes };
+    }
+
+    /* =================== Mostrar ronda e historial =================== */
+    function showRound({ pairs, solo }) {
+      pairTable.innerHTML = '<tr><th class="border p-2 bg-gray-100">#</th><th class="border p-2 bg-gray-100">Dupla</th></tr>';
+      pairs.forEach((p, i) => {
+        pairTable.innerHTML += `<tr><td class='border p-2 font-medium bg-gray-50'>Duo ${i + 1}</td><td class='border p-2'>${p[0]} + ${p[1]}</td></tr>`;
+      });
+      if (solo) pairTable.innerHTML += `<tr><td class='border p-2 font-medium bg-yellow-100'>Solo</td><td class='border p-2 text-red-600'>${solo}</td></tr>`;
+    }
+    function renderHistory() {
+      historyList.innerHTML = '';
+      history.slice().reverse().forEach(h => {
+        const div = document.createElement('div');
+        div.className = 'border rounded-xl overflow-hidden shadow-sm';
+        let html = `<table class='w-full text-xs text-center border-collapse'><tr><th colspan='3' class='bg-gray-200 p-2'>Ronda ${h.round}</th></tr>`;
+        h.pairs.forEach((p, i) => {
+          html += `<tr><td class='border p-1 font-medium bg-gray-50'>Duo ${i + 1}</td><td class='border p-1'>${p[0]}</td><td class='border p-1'>${p[1]}</td></tr>`;
+        });
+        if (h.solo) html += `<tr><td class='border p-1 font-medium bg-yellow-100'>Solo</td><td colspan='2' class='border p-1 text-red-600'>${h.solo}</td></tr>`;
+        html += '</table>';
+        div.innerHTML = html;
+        historyList.appendChild(div);
+      });
+    }
+
+    /* =================== Matriz de combinaciones =================== */
+    const pairKey = (a, b) => [a, b].sort().join('|');
+    function updateMatrixTable() {
+      if (players.length < 2) {
+        matrixTable.innerHTML = '';
+        return;
+      }
+      const played = new Set();
+      history.forEach(h => {
+        h.pairs.forEach(([a, b]) => played.add(pairKey(a, b)));
+      });
+
+      let html = '<tr><th class="border p-1 bg-gray-200"></th>';
+      players.forEach(p => {
+        html += `<th class='border p-1 bg-gray-200 text-[10px] sm:text-xs'>${p}</th>`;
+      });
+      html += '</tr>';
+
+      players.forEach((p, i) => {
+        html += `<tr><th class='border p-1 bg-gray-200 text-[10px] sm:text-xs'>${p}</th>`;
+        players.forEach((q, j) => {
+          if (i === j) {
+            html += `<td class='border p-1 bg-gray-50'>—</td>`;
+          } else if (i < j) {
+            const ok = played.has(pairKey(p, q));
+            html += `<td class='border p-1 ${ok ? 'bg-green-200/60 text-green-700' : 'bg-red-200/60 text-red-700 font-semibold'}'>${ok ? '✔' : '✖'}</td>`;
+          } else {
+            html += `<td class='border p-1 bg-gray-50'></td>`; // triángulo inferior vacío
+          }
+        });
+        html += '</tr>';
+      });
+      matrixTable.innerHTML = html;
+    }
+
+    /* =================== Eventos =================== */
+    btnAdd.onclick = () => {
+      const n = nameInput.value.trim();
+      if (!n) return;
+      if (players.some(p => p.toLowerCase() === n.toLowerCase())) {
+        alert('Ese jugador ya está en la lista');
+        return;
+      }
+      players.push(n);
+      stats[n] = { sum: 0, count: 0 };
+      nameInput.value = '';
+      save();
+      renderPlayers();
+      updatePresetStyles();
+      updateMatrixTable();
+    };
+    togglePresets.onclick = () => presetList.classList.toggle('hidden');
+
+    nextBtn.onclick = () => {
+      if (players.length < 3) return;
+      const data = generateRound(round);
+      if (data.extremes && lastExtremes && JSON.stringify(data.extremes) === JSON.stringify(lastExtremes) && players.length >= 8) {
+        round++;
+        return nextBtn.onclick();
+      }
+      roundTitle.textContent = `Ronda (${round + 1}) actual`;
+      showRound(data);
+      record(data.pairs, data.solo);
+      history.push({ round: round + 1, pairs: data.pairs, solo: data.solo });
+      lastExtremes = data.extremes;
+      save();
+      renderHistory();
+      renderPlayers();
+      updateMatrixTable();
+      round++;
+    };
+
+    deleteBtn.onclick = () => {
+      if (!history.length) return;
+      if (prompt('Escribe SEGURO para borrar la última ronda') !== 'SEGURO') return;
+      history.pop();
+      if (round > 0) round--;
+      lastExtremes = null;
+      save();
+      if (history.length) {
+        const last = history[history.length - 1];
+        roundTitle.textContent = `Ronda (${last.round}) actual`;
+        showRound(last);
+      } else {
+        pairTable.innerHTML = '';
+        roundTitle.textContent = 'Sin ronda generada';
+      }
+      renderHistory();
+      renderPlayers();
+      updateMatrixTable();
+    };
+
+    resetBtn.onclick = () => {
+      if (prompt('Escribe SEGURO para borrar TODO') !== 'SEGURO') return;
+      players = [];
+      history = [];
+      stats = {};
+      round = 0;
+      lastExtremes = null;
+      save();
       renderPlayers();
       renderHistory();
-    </script>
-  </body>
+      pairTable.innerHTML = '';
+      roundTitle.textContent = 'Sin ronda generada';
+      updatePresetStyles();
+      updateMatrixTable();
+    };
+
+    showMatrixBtn.onclick = () => {
+      matrixSection.classList.toggle('hidden');
+      if (!matrixSection.classList.contains('hidden')) {
+        updateMatrixTable();
+        setTimeout(() => matrixSection.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
+      }
+    };
+
+    /* =================== Init =================== */
+    buildPresetButtons();
+    renderPlayers();
+    renderHistory();
+    updateMatrixTable();
+  </script>
+</body>
 </html>
