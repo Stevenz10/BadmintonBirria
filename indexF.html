@@ -1,0 +1,735 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Generador de Duplas – Bádminton Avanzado</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    /* Tailwind custom additions */
+    .card:hover { @apply shadow-xl -translate-y-0.5 transition; }
+    .input-disabled { @apply bg-gray-100 cursor-not-allowed; }
+    /* Estilos para el select de "Solo" y otros elementos dinámicos si es necesario */
+    .player-stats-table th, .player-stats-table td { @apply p-2 border border-gray-300 text-center; }
+    .player-stats-table th { @apply bg-gray-100; }
+  </style>
+</head>
+<body class="bg-gradient-to-br from-teal-100 via-sky-100 to-fuchsia-100 min-h-screen flex flex-col items-center p-4 gap-6">
+  <header class="text-center">
+    <h1 class="text-3xl font-extrabold tracking-tight text-gray-800 drop-shadow-sm">Generador de Duplas – Bádminton Avanzado</h1>
+    <p class="text-sm text-gray-600 mt-1">Gestiona rondas, registra resultados, consulta estadísticas y más.</p>
+  </header>
+
+  <section class="card bg-white rounded-2xl p-6 w-full max-w-md">
+    <h2 class="text-xl font-semibold mb-4 flex items-center gap-2">Añadir jugador</h2>
+    <div class="flex flex-col gap-3">
+      <label class="text-sm text-gray-600" for="player-name">Nombre</label>
+      <input id="player-name" list="players-list" placeholder="Nombre del jugador" class="border rounded-xl p-3 focus:ring focus:ring-blue-300" />
+      <datalist id="players-list"></datalist>
+      <div class="flex gap-2">
+        <button id="btn-add" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white rounded-xl p-3 text-sm font-medium">Añadir</button>
+        <button id="toggle-presets" class="bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-xl p-3 text-sm font-medium">Presets</button>
+      </div>
+    </div>
+    <div id="preset-list" class="hidden mt-4">
+      <p class="text-xs text-gray-500 mb-2">Jugadores frecuentes:</p>
+      <div class="grid grid-cols-2 sm:grid-cols-3 gap-2" id="preset-buttons"></div>
+    </div>
+  </section>
+
+  <section id="player-list" class="hidden card bg-white rounded-2xl p-6 w-full max-w-md">
+    <h2 class="text-xl font-semibold mb-4">Jugadores Activos</h2>
+    <ul id="list" class="space-y-2 text-base"></ul>
+  </section>
+
+  <section id="round-controls" class="hidden card bg-white rounded-2xl p-6 w-full max-w-md">
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
+      <h2 id="round-title" class="text-lg font-semibold text-gray-600 italic">Sin ronda generada</h2>
+      <div class="flex flex-wrap gap-2 justify-center">
+        <button id="next" class="bg-green-600 hover:bg-green-700 text-white rounded-xl px-4 py-2 text-sm font-medium">Generar Ronda</button>
+        <button id="delete-round" class="bg-yellow-500 hover:bg-yellow-600 text-white rounded-xl px-4 py-2 text-sm font-medium">Borrar Última Ronda</button>
+        <button id="reset" class="bg-red-600 hover:bg-red-700 text-white rounded-xl px-4 py-2 text-sm font-medium">Resetear Todo</button>
+      </div>
+    </div>
+    <div class="overflow-x-auto">
+      <table id="pairings-table" class="w-full text-sm text-center border-collapse"></table>
+    </div>
+    <div class="flex flex-wrap gap-2 justify-center mt-4">
+        <button id="show-matrix" class="bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl px-4 py-2 text-sm font-medium">Ver Combinaciones</button>
+        <button id="export-data-btn" class="bg-purple-600 hover:bg-purple-700 text-white rounded-xl px-4 py-2 text-sm font-medium">Exportar CSV Partidos</button>
+    </div>
+  </section>
+
+  <section id="match-results-section" class="hidden card bg-white rounded-2xl p-6 w-full max-w-lg">
+    <h2 class="text-xl font-semibold mb-4">Registrar Resultados de Partidos</h2>
+    <div id="match-results-container" class="space-y-6">
+        <div id="add-match-form-container" class="p-4 border rounded-lg bg-gray-50">
+            <h3 class="text-md font-semibold mb-3 text-gray-700">Añadir Partido</h3>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 items-end">
+                <div>
+                    <label for="duo-a-select" class="block text-sm font-medium text-gray-700 mb-1">Dúo A</label>
+                    <select id="duo-a-select" class="w-full border rounded-lg p-2 focus:ring-blue-300 focus:border-blue-300"></select>
+                </div>
+                <div>
+                    <label for="score-a-input" class="block text-sm font-medium text-gray-700 mb-1">Puntos Dúo A</label>
+                    <input type="number" id="score-a-input" min="0" class="w-full border rounded-lg p-2 focus:ring-blue-300 focus:border-blue-300" placeholder="Ej: 21">
+                </div>
+                <div>
+                    <label for="duo-b-select" class="block text-sm font-medium text-gray-700 mb-1">Dúo B</label>
+                    <select id="duo-b-select" class="w-full border rounded-lg p-2 focus:ring-blue-300 focus:border-blue-300"></select>
+                </div>
+                <div>
+                    <label for="score-b-input" class="block text-sm font-medium text-gray-700 mb-1">Puntos Dúo B</label>
+                    <input type="number" id="score-b-input" min="0" class="w-full border rounded-lg p-2 focus:ring-blue-300 focus:border-blue-300" placeholder="Ej: 18">
+                </div>
+            </div>
+            <button id="confirm-add-match-btn" class="mt-4 w-full bg-green-500 hover:bg-green-600 text-white rounded-xl p-2 text-sm font-medium">Confirmar Partido</button>
+        </div>
+        <hr/>
+        <h3 class="text-md font-semibold mb-3 text-gray-700">Partidos Registrados en esta Ronda</h3>
+        <div id="current-round-matches-list" class="space-y-3">
+            </div>
+    </div>
+  </section>
+
+  <section id="player-stats-section" class="hidden card bg-white rounded-2xl p-6 w-full max-w-lg">
+    <h2 class="text-xl font-semibold mb-4">Estadísticas de Jugadores (Victorias/Derrotas)</h2>
+    <div class="overflow-x-auto">
+      <table id="player-stats-table" class="w-full text-sm player-stats-table">
+        <thead>
+          <tr>
+            <th>Jugador</th>
+            <th>Partidos</th>
+            <th>Victorias</th>
+            <th>Dif. Puntos</th>
+            <th>Win %</th>
+          </tr>
+        </thead>
+        <tbody id="player-stats-tbody"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section id="history-section" class="hidden card bg-white rounded-2xl p-6 w-full max-w-md">
+    <h2 class="text-xl font-semibold mb-4">Rondas Anteriores</h2>
+    <div id="history-list" class="space-y-4 max-h-64 overflow-y-auto pr-1"></div>
+  </section>
+
+  <section id="matrix-section" class="hidden card bg-white rounded-2xl p-6 w-full w-max overflow-x-auto">
+    <h2 class="text-xl font-semibold mb-4">Matriz de combinaciones pendientes (entre jugadores)</h2>
+    <p class="text-xs text-gray-500 mb-3">✔ = ya jugaron juntos en un dúo generado · ✖ = pendiente</p>
+    <table id="matrix-table" class="text-xs border-collapse"></table>
+  </section>
+
+  <script>
+    const DEFAULT_PRESETS = ["Pepito","Katy","Ng","Steven","Alex","Brando","Bethania","Michel","Kelvin","Kevin","Patricia","Jonny","Leo","Ricky","Gina"];
+    const qs = s => document.querySelector(s);
+    const qsa = s => document.querySelectorAll(s);
+
+    // DOM refs
+    const nameInput           = qs('#player-name');
+    const btnAdd              = qs('#btn-add');
+    const datalistEl          = qs('#players-list');
+    const presetWrapper       = qs('#preset-buttons');
+    const togglePresets       = qs('#toggle-presets');
+    const presetList          = qs('#preset-list');
+    const listEl              = qs('#list');
+    const playerSection       = qs('#player-list'); 
+    const roundSection        = qs('#round-controls'); 
+    const roundTitle          = qs('#round-title');
+    const pairingsTableEl     = qs('#pairings-table');
+    const nextBtn             = qs('#next');
+    const deleteBtn           = qs('#delete-round');
+    const resetBtn            = qs('#reset');
+    const showMatrixBtn       = qs('#show-matrix');
+    const historyListEl       = qs('#history-list'); 
+    const matrixSection       = qs('#matrix-section');
+    const matrixTableEl       = qs('#matrix-table');
+    const exportDataBtn       = qs('#export-data-btn');
+    const historySectionEl    = qs('#history-section'); 
+
+    // New DOM refs for added features
+    const matchResultsSection       = qs('#match-results-section');
+    const matchResultsContainer     = qs('#match-results-container');
+    const duoASelect                = qs('#duo-a-select');
+    const duoBSelect                = qs('#duo-b-select');
+    const scoreAInput               = qs('#score-a-input');
+    const scoreBInput               = qs('#score-b-input');
+    const confirmAddMatchBtn        = qs('#confirm-add-match-btn');
+    const currentRoundMatchesListEl = qs('#current-round-matches-list');
+    const playerStatsSection        = qs('#player-stats-section');
+    const playerStatsTbody          = qs('#player-stats-tbody');
+
+    // State variables
+    let players = [];
+    let history = [];
+    let stats = {}; // Para el promedio de posiciones (balanceo) - ORIGINAL
+    let detailedPlayerStats = {};
+    let duoState = {}; 
+    let roundCounter = 0; // Índice para el algoritmo de generación de rondas (idx)
+    let lastExtremes = null;
+    let currentSoloAssignments = {};
+
+    const loadState = () => {
+        players = JSON.parse(localStorage.getItem('badminton_players')) || [];
+        history = JSON.parse(localStorage.getItem('badminton_history')) || [];
+        stats = JSON.parse(localStorage.getItem('stats') || '{}'); // Carga 'stats' original
+        detailedPlayerStats = JSON.parse(localStorage.getItem('badminton_detailedPlayerStats')) || {};
+        duoState = JSON.parse(localStorage.getItem('badminton_duoState')) || {};
+        roundCounter = parseInt(localStorage.getItem('badminton_roundCounter') || '0', 10);
+        lastExtremes = JSON.parse(localStorage.getItem('badminton_lastExtremes') || 'null');
+        currentSoloAssignments = {};
+    };
+
+    const saveState = () => {
+        localStorage.setItem('badminton_players', JSON.stringify(players));
+        localStorage.setItem('badminton_history', JSON.stringify(history));
+        localStorage.setItem('stats', JSON.stringify(stats)); // Guarda 'stats' original
+        localStorage.setItem('badminton_detailedPlayerStats', JSON.stringify(detailedPlayerStats));
+        localStorage.setItem('badminton_duoState', JSON.stringify(duoState));
+        localStorage.setItem('badminton_roundCounter', roundCounter.toString());
+        localStorage.setItem('badminton_lastExtremes', JSON.stringify(lastExtremes));
+    };
+
+    // --- UTILITIES ---
+    const getDuoKey = (player1, player2) => [player1, player2].slice().sort().join('|');
+
+    /* =================== Promedio posiciones (ORIGINAL) =================== */
+    function record(pairs, solo) { 
+      const len = pairs.length;
+      pairs.forEach(([a, b], i) => {
+        const pos = i + 1;
+        [a, b].forEach(n => {
+          stats[n] = stats[n] || { sum: 0, count: 0 };
+          stats[n].sum += pos;
+          stats[n].count += 1;
+        });
+      });
+      if (solo) {
+        stats[solo] = stats[solo] || { sum: 0, count: 0 };
+        stats[solo].sum += len + 1;
+        stats[solo].count += 1;
+      }
+    }
+    const avg = n => stats[n] ? (stats[n].sum / stats[n].count).toFixed(2) : '-';
+
+    // --- RENDER PLAYER LIST & PRESETS ---
+    function updateDatalist() {
+      datalistEl.innerHTML = '';
+      players.forEach(p => { const o = document.createElement('option'); o.value = p; datalistEl.appendChild(o); });
+    }
+
+    function renderPlayers() {
+      playerSection.classList.toggle('hidden', players.length === 0);
+      listEl.innerHTML = '';
+      players.forEach((p, i) => {
+        const li = document.createElement('li');
+        li.className = 'flex justify-between items-center bg-gray-50 rounded-xl p-3 hover:bg-gray-100 text-sm';
+        li.innerHTML = `<span>${i + 1}. ${p} <span class='text-xs text-gray-500'>(prom: ${avg(p)})</span></span>`;
+        const del = document.createElement('button');
+        del.innerHTML = '&times;';
+        del.className = 'text-red-500 hover:text-red-700 font-bold px-2';
+        del.onclick = () => {
+          if (confirm(`¿Seguro que quieres eliminar a ${p}?`)) {
+            delete stats[p]; 
+            players.splice(i, 1);
+            updatePresetStyles(); saveState(); renderAll();
+          }
+        };
+        li.appendChild(del); listEl.appendChild(li);
+      });
+      updateDatalist();
+      roundSection.classList.toggle('hidden', players.length < 2);
+      historySectionEl.classList.toggle('hidden', history.length === 0 && players.length < 2);
+      playerStatsSection.classList.toggle('hidden', players.length === 0);
+      if (players.length === 0) matrixSection.classList.add('hidden');
+    }
+
+    function buildPresetButtons() {
+      presetWrapper.innerHTML = '';
+      DEFAULT_PRESETS.forEach(name => {
+        const b = document.createElement('button');
+        b.textContent = name;
+        b.className = 'preset-button rounded-xl p-2 text-xs font-medium transition-colors';
+        b.onclick = () => {
+          if (players.includes(name)) return;
+          players.push(name);
+          stats[name] = stats[name] || { sum: 0, count: 0 }; 
+          if (!detailedPlayerStats[name]) detailedPlayerStats[name] = { mp: 0, w: 0, pointsScored: 0, pointsConceded: 0 };
+          saveState(); renderAll(); updatePresetStyles();
+        };
+        presetWrapper.appendChild(b);
+      });
+      updatePresetStyles();
+    }
+
+    function updatePresetStyles() {
+      qsa('.preset-button').forEach(b => {
+        b.className = `preset-button rounded-xl p-2 text-xs font-medium transition-colors ${players.includes(b.textContent) ? 'bg-red-300/70 hover:bg-red-400 text-white cursor-not-allowed' : 'bg-green-200 hover:bg-green-300 text-gray-700'}`;
+        b.disabled = players.includes(b.textContent);
+      });
+    }
+
+    // --- PAIRING ALGORITHM (Alineado con el original) ---
+    function generateRoundAlgorithm(idx, playersToSkip = []) {
+        const availablePlayers = players.filter(p => !playersToSkip.includes(p));
+
+        if (availablePlayers.length === 0) return { pairs: [], solo: null, extremes: null };
+        if (availablePlayers.length === 1) return { pairs: [], solo: availablePlayers[0], extremes: null };
+
+        let arrForPairing = [...availablePlayers];
+        const isNumPlayingEntitiesOdd = availablePlayers.length % 2 === 1;
+
+        if (isNumPlayingEntitiesOdd) {
+            arrForPairing.push('DESCANSO'); // Usa 'DESCANSO' como en el original
+        }
+        const n_for_pairing = arrForPairing.length; // n_for_pairing siempre será par y >= 2
+
+        // Aplicar outerShift si el número de jugadores disponibles era par (antes de añadir 'DESCANSO')
+        // Esto replica la lógica original donde el outerShift dependía de si players.length era par.
+        if (!isNumPlayingEntitiesOdd && n_for_pairing > 0) { // Si availablePlayers.length era par
+            const shift = idx % n_for_pairing;
+            arrForPairing = arrForPairing.slice(shift).concat(arrForPairing.slice(0, shift));
+        }
+        
+        const cycle = n_for_pairing - 1; // cycle >= 1 porque n_for_pairing >= 2
+        const r_rotation = idx % cycle; 
+
+        const P0 = arrForPairing[0];
+        const otherPlayers = arrForPairing.slice(1);
+        const rotatedOthers = otherPlayers.slice(r_rotation).concat(otherPlayers.slice(0, r_rotation));
+        const finalRotArr = [P0, ...rotatedOthers];
+
+        const pairs = [];
+        let solo = null;
+        for (let i = 0; i < n_for_pairing / 2; i++) {
+            const p1 = finalRotArr[i];
+            const p2 = finalRotArr[n_for_pairing - 1 - i];
+            if (p1 === 'DESCANSO' || p2 === 'DESCANSO') {
+                solo = (p1 === 'DESCANSO') ? p2 : p1;
+            } else {
+                pairs.push([p1, p2]); // No ordenar aquí para mantener la salida original del emparejamiento
+            }
+        }
+
+        // Fairness (usa 'stats' global y 'avgOf' que usa 'mean')
+        const npos_for_mean = pairs.length + 1; 
+        const mean = (npos_for_mean + 1) / 2; 
+        const avgOf = name => { 
+            const st = stats[name] || { sum: 0, count: 0 };
+            return st.count ? st.sum / st.count : mean;
+        };
+        // Crear una copia para ordenar por fairness, para no afectar el 'extremes' si se calcula sobre el original
+        const sortedPairsForFairness = [...pairs]; 
+        sortedPairsForFairness.sort((u, v) => {
+            const du = ((avgOf(u[0]) + avgOf(u[1])) / 2) - mean;
+            const dv = ((avgOf(v[0]) + avgOf(v[1])) / 2) - mean;
+            return dv - du; 
+        });
+
+        let extremes = null;
+        // El cálculo de 'extremes' debe usar los dúos *después* de la ordenación por 'fairness', como en el original.
+        if (sortedPairsForFairness.length >= 3) { 
+            extremes = [...sortedPairsForFairness[0], ...sortedPairsForFairness[1], ...sortedPairsForFairness[sortedPairsForFairness.length - 2], ...sortedPairsForFairness[sortedPairsForFairness.length - 1]].sort();
+        }
+        // Retornar los pares ordenados por fairness
+        return { pairs: sortedPairsForFairness, solo, extremes };
+    }
+
+
+    // --- RENDER CURRENT ROUND & SOLO ASSIGNMENT ---
+    function renderCurrentRoundDisplay() {
+        const currentRoundHistoryEntry = history.length > 0 ? history[history.length - 1] : null;
+        if (!currentRoundHistoryEntry) {
+            pairingsTableEl.innerHTML = ''; roundTitle.textContent = 'Sin ronda generada';
+            matchResultsSection.classList.add('hidden'); return;
+        }
+        roundTitle.textContent = `Ronda ${currentRoundHistoryEntry.roundNumber} (Actual)`;
+        pairingsTableEl.innerHTML = '<thead><tr><th class="border p-2 bg-gray-100">#</th><th class="border p-2 bg-gray-100">Dúo / Jugador</th><th class="border p-2 bg-gray-100 min-w-[200px]">Acción / Compañero</th></tr></thead><tbody></tbody>';
+        const tbody = pairingsTableEl.querySelector('tbody');
+        currentRoundHistoryEntry.generatedPairs.forEach((p, i) => {
+            const row = tbody.insertRow();
+            row.innerHTML = `<td class='border p-2 font-medium bg-gray-50'>Dúo ${i + 1}</td><td class='border p-2'>${p[0]} + ${p[1]}</td><td class='border p-2'></td>`;
+        });
+        if (currentRoundHistoryEntry.soloPlayer) {
+            const soloN = currentRoundHistoryEntry.soloPlayer;
+            const assignedPartner = currentSoloAssignments[soloN];
+            const soloRow = tbody.insertRow(); soloRow.id = `solo-player-row-${soloN}`;
+            let soloStatusHTML = `<td class='border p-2 text-red-600 font-semibold'>${soloN}</td>`;
+            let actionHTML = '';
+            if (assignedPartner) {
+                actionHTML = `<span class="text-green-600">Asignado con: ${assignedPartner}</span>`;
+                soloRow.style.opacity = '0.7'; 
+            } else {
+                const availablePartners = players.filter(p => p !== soloN && currentRoundHistoryEntry.generatedPairs.flat().includes(p) && !Object.values(currentSoloAssignments).includes(p));
+                if (availablePartners.length > 0) {
+                    actionHTML = `<select id='solo-partner-select-${soloN}' class='border rounded p-1 text-sm mr-2 w-auto focus:ring-blue-300 focus:border-blue-300'><option value=''>Elegir...</option>${availablePartners.map(p => `<option value='${p}'>${p}</option>`).join('')}</select><button onclick='handleAssignSoloPartner("${soloN}")' class='bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-xs'>Asignar</button>`;
+                } else { actionHTML = `<span class='text-xs text-gray-500'>No hay compañeros disponibles.</span>`; }
+            }
+            soloRow.innerHTML = `<td class='border p-2 font-medium bg-yellow-100'>Solo</td>${soloStatusHTML}<td class='border p-2'>${actionHTML}</td>`;
+        }
+        matchResultsSection.classList.remove('hidden');
+        populateDuoDropdownsForMatchInput(); renderCurrentRoundMatchesList();
+    }
+
+    window.handleAssignSoloPartner = (soloPlayerName) => {
+        const selectElement = qs(`#solo-partner-select-${soloPlayerName}`);
+        const chosenPartner = selectElement.value;
+        if (!chosenPartner) { alert('Por favor, selecciona un compañero.'); return; }
+        for (const solo in currentSoloAssignments) { if (currentSoloAssignments[solo] === chosenPartner && solo !== soloPlayerName) { alert(`${chosenPartner} ya ha sido asignado a ${solo}. Elige otro compañero.`); return; } }
+        currentSoloAssignments[soloPlayerName] = chosenPartner;
+        alert(`${soloPlayerName} ahora jugará con ${chosenPartner} para los partidos de esta ronda.`);
+        renderCurrentRoundDisplay(); populateDuoDropdownsForMatchInput();
+    };
+
+    // --- MATCH RESULTS ---
+    function getAvailableDuosForMatch() {
+        const currentRoundHistoryEntry = history.length > 0 ? history[history.length - 1] : null;
+        if (!currentRoundHistoryEntry) return [];
+        let duos = currentRoundHistoryEntry.generatedPairs.map(p => ({ text: p.join(' + '), value: getDuoKey(p[0], p[1]) }));
+        for (const soloPlayer in currentSoloAssignments) {
+            const partner = currentSoloAssignments[soloPlayer];
+            if (partner) {
+                const soloDuo = [soloPlayer, partner]; const soloDuoKey = getDuoKey(soloPlayer, partner);
+                if (!duos.find(d => d.value === soloDuoKey)) duos.push({ text: soloDuo.join(' + '), value: soloDuoKey });
+            }
+        }
+        const uniqueDuos = []; const seenTexts = new Set();
+        for (const duo of duos) { if (!seenTexts.has(duo.text)) { uniqueDuos.push(duo); seenTexts.add(duo.text); } }
+        return uniqueDuos;
+    }
+
+    function populateDuoDropdownsForMatchInput() {
+        const availableDuos = getAvailableDuosForMatch();
+        [duoASelect, duoBSelect].forEach(select => {
+            const currentValue = select.value;
+            select.innerHTML = '<option value="">Selecciona un dúo</option>';
+            availableDuos.forEach(duo => { const option = document.createElement('option'); option.value = duo.value; option.textContent = duo.text; select.appendChild(option); });
+            if (availableDuos.find(d => d.value === currentValue)) select.value = currentValue;
+        });
+    }
+    
+    function clearMatchInputForm() {
+        duoASelect.value = ''; duoBSelect.value = ''; scoreAInput.value = ''; scoreBInput.value = '';
+        qs('#add-match-form-container').dataset.editingMatchId = '';
+        confirmAddMatchBtn.textContent = 'Confirmar Partido';
+        confirmAddMatchBtn.classList.remove('bg-yellow-500', 'hover:bg-yellow-600');
+        confirmAddMatchBtn.classList.add('bg-green-500', 'hover:bg-green-600');
+        [duoASelect, scoreAInput, duoBSelect, scoreBInput].forEach(el => { el.disabled = false; el.classList.remove('input-disabled'); });
+    }
+
+    confirmAddMatchBtn.onclick = () => {
+        const currentRoundHistoryEntry = history.length > 0 ? history[history.length - 1] : null;
+        if (!currentRoundHistoryEntry) { alert("No hay una ronda activa."); return; }
+        const duoAKey = duoASelect.value; const duoBKey = duoBSelect.value;
+        const scoreA = parseInt(scoreAInput.value, 10); const scoreB = parseInt(scoreBInput.value, 10);
+        const editingMatchId = qs('#add-match-form-container').dataset.editingMatchId;
+        if (!duoAKey || !duoBKey) { alert('Selecciona ambos dúos.'); return; }
+        if (duoAKey === duoBKey) { alert('Un dúo no puede jugar contra sí mismo.'); return; }
+        if (isNaN(scoreA) || isNaN(scoreB) || scoreA < 0 || scoreB < 0) { alert('Puntuaciones deben ser números no negativos.'); return; }
+        if (scoreA === scoreB) { alert('Los partidos no pueden terminar en empate.'); return; }
+        if (!currentRoundHistoryEntry.matches) currentRoundHistoryEntry.matches = [];
+        if (!editingMatchId) {
+            const matchExists = currentRoundHistoryEntry.matches.some(match => (match.duoAKey === duoAKey && match.duoBKey === duoBKey) || (match.duoAKey === duoBKey && match.duoBKey === duoAKey));
+            if (matchExists) { alert('Este par de dúos ya tiene un partido registrado.'); return; }
+        }
+        const duoAPlayers = duoAKey.split('|'); const duoBPlayers = duoBKey.split('|');
+        if (editingMatchId) {
+            const matchIndex = currentRoundHistoryEntry.matches.findIndex(m => m.id === editingMatchId);
+            if (matchIndex === -1) { alert("Error: No se encontró el partido para editar."); clearMatchInputForm(); return; }
+            revertStatsForMatch(currentRoundHistoryEntry.matches[matchIndex]);
+            currentRoundHistoryEntry.matches[matchIndex] = { ...currentRoundHistoryEntry.matches[matchIndex], duoAKey, duoBKey, duoAPlayers, duoBPlayers, scoreA, scoreB, confirmed: true };
+            alert('Partido actualizado.');
+        } else {
+            const newMatch = { id: `match_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`, duoAKey, duoBKey, duoAPlayers, duoBPlayers, scoreA, scoreB, confirmed: true };
+            currentRoundHistoryEntry.matches.push(newMatch);
+            alert('Partido confirmado.');
+        }
+        updateDetailedPlayerStatsForMatch(duoAPlayers, scoreA, duoBPlayers, scoreB);
+        updateDuoConsecutiveWins(duoAPlayers, scoreA, duoBPlayers, scoreB);
+        saveState(); renderPlayerStatsTable(); renderCurrentRoundMatchesList(); clearMatchInputForm();
+    };
+
+    function revertStatsForMatch(matchData) {
+        [...matchData.duoAPlayers, ...matchData.duoBPlayers].forEach(player => { if (detailedPlayerStats[player]) detailedPlayerStats[player].mp--; });
+        const winnerScore = matchData.scoreA > matchData.scoreB ? matchData.scoreA : matchData.scoreB;
+        const loserScore = matchData.scoreA < matchData.scoreB ? matchData.scoreA : matchData.scoreB;
+        const winningDuo = matchData.scoreA > matchData.scoreB ? matchData.duoAPlayers : matchData.duoBPlayers;
+        const losingDuo = matchData.scoreA < matchData.scoreB ? matchData.duoAPlayers : matchData.duoBPlayers;
+        winningDuo.forEach(player => { if (detailedPlayerStats[player]) { detailedPlayerStats[player].w--; detailedPlayerStats[player].pointsScored -= winnerScore; detailedPlayerStats[player].pointsConceded -= loserScore; } });
+        losingDuo.forEach(player => { if (detailedPlayerStats[player]) { detailedPlayerStats[player].pointsScored -= loserScore; detailedPlayerStats[player].pointsConceded -= winnerScore; } });
+    }
+
+    window.handleEditMatch = (matchId) => {
+        const currentRoundHistoryEntry = history.length > 0 ? history[history.length - 1] : null;
+        if (!currentRoundHistoryEntry || !currentRoundHistoryEntry.matches) return;
+        const matchToEdit = currentRoundHistoryEntry.matches.find(m => m.id === matchId);
+        if (!matchToEdit) { alert("Error: Partido no encontrado."); return; }
+        duoASelect.value = matchToEdit.duoAKey; duoBSelect.value = matchToEdit.duoBKey;
+        scoreAInput.value = matchToEdit.scoreA; scoreBInput.value = matchToEdit.scoreB;
+        qs('#add-match-form-container').dataset.editingMatchId = matchId;
+        confirmAddMatchBtn.textContent = 'Actualizar Partido';
+        confirmAddMatchBtn.classList.replace('bg-green-500','bg-yellow-500');
+        confirmAddMatchBtn.classList.replace('hover:bg-green-600','hover:bg-yellow-600');
+        [duoASelect, scoreAInput, duoBSelect, scoreBInput].forEach(el => { el.disabled = false; el.classList.remove('input-disabled'); });
+        duoASelect.focus();
+    };
+    
+    window.handleDeleteMatch = (matchId) => {
+        const currentRoundHistoryEntry = history.length > 0 ? history[history.length - 1] : null;
+        if (!currentRoundHistoryEntry || !currentRoundHistoryEntry.matches) return;
+        const matchIndex = currentRoundHistoryEntry.matches.findIndex(m => m.id === matchId);
+        if (matchIndex === -1) { alert("Error: Partido no encontrado."); return; }
+        if (!confirm("¿Seguro que quieres eliminar este resultado?")) return;
+        const matchToDelete = currentRoundHistoryEntry.matches[matchIndex];
+        revertStatsForMatch(matchToDelete); 
+        const duoADelKey = getDuoKey(matchToDelete.duoAPlayers[0], matchToDelete.duoAPlayers[1]);
+        const duoBDelKey = getDuoKey(matchToDelete.duoBPlayers[0], matchToDelete.duoBPlayers[1]);
+        if (duoState[duoADelKey]) duoState[duoADelKey].consecutiveWins = 0; 
+        if (duoState[duoBDelKey]) duoState[duoBDelKey].consecutiveWins = 0;
+        currentRoundHistoryEntry.matches.splice(matchIndex, 1);
+        saveState(); renderPlayerStatsTable(); renderCurrentRoundMatchesList(); clearMatchInputForm(); 
+        alert("Partido eliminado.");
+    };
+
+    function renderCurrentRoundMatchesList() {
+        currentRoundMatchesListEl.innerHTML = '';
+        const currentRoundHistoryEntry = history.length > 0 ? history[history.length - 1] : null;
+        if (!currentRoundHistoryEntry || !currentRoundHistoryEntry.matches || currentRoundHistoryEntry.matches.length === 0) {
+            currentRoundMatchesListEl.innerHTML = '<p class="text-sm text-gray-500 italic">No hay partidos registrados para esta ronda.</p>'; return;
+        }
+        currentRoundHistoryEntry.matches.forEach(match => {
+            const div = document.createElement('div'); div.className = 'p-3 border rounded-md bg-white shadow-sm text-sm';
+            const duoAText = match.duoAPlayers.join(' + '); const duoBText = match.duoBPlayers.join(' + ');
+            let resultText = match.scoreA > match.scoreB ? `<strong class="text-green-600">${duoAText}</strong> (${match.scoreA}) vs ${duoBText} (${match.scoreB})` : `${duoAText} (${match.scoreA}) vs <strong class="text-green-600">${duoBText}</strong> (${match.scoreB})`;
+            div.innerHTML = `<div class="flex justify-between items-center"><div>${resultText}</div><div><button onclick="handleEditMatch('${match.id}')" class="text-blue-500 hover:text-blue-700 text-xs mr-2">Editar</button><button onclick="handleDeleteMatch('${match.id}')" class="text-red-500 hover:text-red-700 text-xs">&times; Borrar</button></div></div>`;
+            currentRoundMatchesListEl.appendChild(div);
+        });
+    }
+
+    // --- CONSECUTIVE WINS ---
+    function updateDuoConsecutiveWins(duoAPlayers, scoreA, duoBPlayers, scoreB) {
+        const duoA_Key = getDuoKey(duoAPlayers[0], duoAPlayers[1]); const duoB_Key = getDuoKey(duoBPlayers[0], duoBPlayers[1]);
+        if (!duoState[duoA_Key]) duoState[duoA_Key] = { consecutiveWins: 0, isRestingNextRound: false };
+        if (!duoState[duoB_Key]) duoState[duoB_Key] = { consecutiveWins: 0, isRestingNextRound: false };
+        let winningDuoKey = scoreA > scoreB ? duoA_Key : duoB_Key;
+        let losingDuoKey = scoreA > scoreB ? duoB_Key : duoA_Key;
+        duoState[winningDuoKey].consecutiveWins++; duoState[losingDuoKey].consecutiveWins = 0;
+        if (duoState[winningDuoKey].consecutiveWins >= 2) {
+            duoState[winningDuoKey].isRestingNextRound = true;
+            alert(`¡Atención! El dúo ${winningDuoKey.replace('|', ' + ')} ha ganado ${duoState[winningDuoKey].consecutiveWins} partidos seguidos y descansará la próxima ronda.`);
+        }
+    }
+
+    // --- PLAYER STATISTICS (Win/Loss) ---
+    function updateDetailedPlayerStatsForMatch(duoAPlayers, scoreA, duoBPlayers, scoreB) {
+        [...duoAPlayers, ...duoBPlayers].forEach(playerName => { if (!detailedPlayerStats[playerName]) detailedPlayerStats[playerName] = { mp: 0, w: 0, pointsScored: 0, pointsConceded: 0 }; detailedPlayerStats[playerName].mp++; });
+        const winnerPlayers = scoreA > scoreB ? duoAPlayers : duoBPlayers; const loserPlayers = scoreA < scoreB ? duoAPlayers : duoBPlayers;
+        const winnerScore = Math.max(scoreA, scoreB); const loserScore = Math.min(scoreA, scoreB);
+        winnerPlayers.forEach(playerName => { detailedPlayerStats[playerName].w++; detailedPlayerStats[playerName].pointsScored += winnerScore; detailedPlayerStats[playerName].pointsConceded += loserScore; });
+        loserPlayers.forEach(playerName => { detailedPlayerStats[playerName].pointsScored += loserScore; detailedPlayerStats[playerName].pointsConceded += winnerScore; });
+    }
+    
+    function recalculateAllDetailedPlayerStats() {
+        players.forEach(pName => detailedPlayerStats[pName] = { mp: 0, w: 0, pointsScored: 0, pointsConceded: 0 });
+        history.forEach(roundData => {
+            if (roundData.matches) roundData.matches.forEach(match => {
+                if (match.confirmed) {
+                    [...match.duoAPlayers, ...match.duoBPlayers].forEach(pName => { if (!detailedPlayerStats[pName]) detailedPlayerStats[pName] = { mp: 0, w: 0, pointsScored: 0, pointsConceded: 0 }; });
+                    updateDetailedPlayerStatsForMatch(match.duoAPlayers, match.scoreA, match.duoBPlayers, match.scoreB);
+                }
+            });
+        });
+    }
+
+    function renderPlayerStatsTable() {
+        playerStatsTbody.innerHTML = ''; const statsArray = [];
+        for (const playerName in detailedPlayerStats) {
+            const statsEntry = detailedPlayerStats[playerName];
+            if (statsEntry.mp > 0) {
+                const winRate = (statsEntry.w / statsEntry.mp * 100); const pointDiff = statsEntry.pointsScored - statsEntry.pointsConceded;
+                statsArray.push({ name: playerName, mp: statsEntry.mp, w: statsEntry.w, pointDiff: pointDiff, winRate: winRate, isActive: players.includes(playerName) });
+            }
+        }
+        statsArray.sort((a, b) => b.winRate - a.winRate || b.pointDiff - a.pointDiff || b.w - a.w);
+        statsArray.forEach(s => {
+            const row = playerStatsTbody.insertRow(); row.className = s.isActive ? '' : 'opacity-60 italic';
+            row.innerHTML = `<td class="text-left">${s.name} ${s.isActive ? '' : '(inactivo)'}</td><td>${s.mp}</td><td>${s.w}</td><td>${s.pointDiff > 0 ? '+' : ''}${s.pointDiff}</td><td>${s.winRate.toFixed(1)}%</td>`;
+        });
+        playerStatsSection.classList.toggle('hidden', statsArray.length === 0);
+    }
+
+    // --- HISTORY (Generated Rounds Structure Display) ---
+    function renderGeneratedRoundsHistory() {
+        historyListEl.innerHTML = '';
+        if (history.length === 0) { historySectionEl.classList.add('hidden'); return; }
+        historySectionEl.classList.remove('hidden');
+        history.slice().reverse().forEach(hEntry => {
+            const div = document.createElement('div'); div.className = 'border rounded-xl overflow-hidden shadow-sm mb-3';
+            let html = `<table class='w-full text-xs text-center border-collapse'><thead><tr><th colspan='3' class='bg-gray-200 p-2'>Ronda ${hEntry.roundNumber}</th></tr></thead><tbody>`;
+            hEntry.generatedPairs.forEach((p, i) => { html += `<tr><td class='border p-1 font-medium bg-gray-50 w-1/4'>Dúo ${i + 1}</td><td class='border p-1'>${p[0]}</td><td class='border p-1'>${p[1]}</td></tr>`; });
+            if (hEntry.soloPlayer) html += `<tr><td class='border p-1 font-medium bg-yellow-100'>Solo</td><td colspan='2' class='border p-1 text-red-600'>${hEntry.soloPlayer}</td></tr>`;
+            html += '</tbody></table>';
+            if (hEntry.matches && hEntry.matches.length > 0) {
+                html += `<div class="p-2 text-xs bg-gray-50 border-t"><strong class="block mb-1">Partidos:</strong><ul class="list-disc list-inside pl-2">`;
+                hEntry.matches.forEach(match => { html += `<li>${match.duoAPlayers.join(' + ')} (${match.scoreA}) vs ${match.duoBPlayers.join(' + ')} (${match.scoreB})</li>`; });
+                html += `</ul></div>`;
+            } else { html += `<div class="p-2 text-xs text-gray-400 italic bg-gray-50 border-t">Sin partidos.</div>`; }
+            div.innerHTML = html; historyListEl.appendChild(div);
+        });
+    }
+
+    // --- MATRIX OF COMBINATIONS ---
+    const pairKeyForMatrix = (a, b) => [a, b].sort().join('|');
+    function updateMatrixTable() {
+        if (players.length < 2) { matrixTableEl.innerHTML = ''; matrixSection.classList.add('hidden'); return; }
+        const playedInGeneratedDuos = new Set();
+        history.forEach(h => { h.generatedPairs.forEach(([a, b]) => playedInGeneratedDuos.add(pairKeyForMatrix(a, b))); });
+        let html = '<thead><tr><th class="border p-1 bg-gray-200 sticky left-0 z-10"></th>';
+        players.forEach(p => { html += `<th class='border p-1 bg-gray-200 text-[10px] sm:text-xs whitespace-nowrap'>${p}</th>`; });
+        html += '</tr></thead><tbody>';
+        players.forEach((p1, i) => {
+            html += `<tr><th class='border p-1 bg-gray-200 text-[10px] sm:text-xs sticky left-0 z-10 whitespace-nowrap'>${p1}</th>`;
+            players.forEach((p2, j) => {
+                if (i === j) html += `<td class='border p-1 bg-gray-100'>—</td>`;
+                else if (i < j) {
+                    const played = playedInGeneratedDuos.has(pairKeyForMatrix(p1, p2));
+                    html += `<td class='border p-1 text-center ${played ? 'bg-green-200/60 text-green-700' : 'bg-red-200/60 text-red-700 font-semibold'}'>${played ? '✔' : '✖'}</td>`;
+                } else html += `<td class='border p-1 bg-gray-50'></td>`;
+            });
+            html += '</tr>';
+        });
+        html += '</tbody>'; matrixTableEl.innerHTML = html;
+        if (!matrixSection.classList.contains('hidden')) matrixSection.classList.remove('hidden');
+    }
+
+    // --- EVENT HANDLERS & MAIN LOGIC ---
+    btnAdd.onclick = () => {
+        const n = nameInput.value.trim();
+        if (!n) { alert('El nombre no puede estar vacío.'); return; }
+        if (players.some(p => p.toLowerCase() === n.toLowerCase())) { alert('Ese jugador ya está.'); return; }
+        players.push(n); stats[n] = stats[n] || { sum: 0, count: 0 }; 
+        if (!detailedPlayerStats[n]) detailedPlayerStats[n] = { mp: 0, w: 0, pointsScored: 0, pointsConceded: 0 };
+        nameInput.value = ''; saveState(); renderAll(); updatePresetStyles();
+    };
+
+    togglePresets.onclick = () => presetList.classList.toggle('hidden');
+
+    nextBtn.onclick = () => {
+        if (players.length < 2) { alert("Se necesitan al menos 2 jugadores."); return; }
+        let playersToSkipCurrentRound = [];
+        for (const duoKey in duoState) {
+            if (duoState[duoKey].isRestingNextRound) {
+                playersToSkipCurrentRound.push(...duoKey.split('|'));
+                duoState[duoKey].isRestingNextRound = false; duoState[duoKey].consecutiveWins = 0;
+            }
+        }
+        playersToSkipCurrentRound = [...new Set(playersToSkipCurrentRound)];
+        const generatedRoundData = generateRoundAlgorithm(roundCounter, playersToSkipCurrentRound);
+        
+        if (generatedRoundData.extremes && lastExtremes && JSON.stringify(generatedRoundData.extremes) === JSON.stringify(lastExtremes) && (players.length - playersToSkipCurrentRound.length) >= 8) {
+             // Increment roundCounter here to attempt a different combination for the *current* logical round generation
+             // This is to ensure the algorithm's `idx` changes if we are trying to avoid repetition
+             // This only affects the 'idx' for generateRoundAlgorithm, not the 'roundNumber' in history
+             roundCounter++; 
+             // Re-generate with the new roundCounter
+             const newGeneratedData = generateRoundAlgorithm(roundCounter, playersToSkipCurrentRound);
+             Object.assign(generatedRoundData, newGeneratedData); // Update with potentially new data
+             console.warn("Posible repetición de extremos, se usó un índice de algoritmo incrementado.");
+        }
+        
+        const currentRoundNumber = (history.length > 0 ? history[history.length - 1].roundNumber : 0) + 1;
+        const newHistoryEntry = { roundNumber: currentRoundNumber, generatedPairs: generatedRoundData.pairs, soloPlayer: generatedRoundData.solo, matches: [] };
+        history.push(newHistoryEntry);
+        record(generatedRoundData.pairs, generatedRoundData.solo); 
+        lastExtremes = generatedRoundData.extremes;
+        currentSoloAssignments = {}; 
+        roundCounter++; // Incrementa el contador global para el próximo idx del algoritmo
+        saveState(); renderAll(); clearMatchInputForm(); 
+        matchResultsSection.classList.remove('hidden');
+        pairingsTableEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    };
+
+    deleteBtn.onclick = () => {
+        if (!history.length) return;
+        if (prompt('Escribe SEGURO para borrar la última ronda (y sus partidos).') !== 'SEGURO') return;
+        history.pop();
+        recalculateAllDetailedPlayerStats(); // Recalcula desde el historial restante
+        lastExtremes = history.length > 0 && history[history.length-1].extremes ? history[history.length-1].extremes : null;
+        currentSoloAssignments = {}; 
+        saveState(); renderAll(); 
+        if (history.length === 0) {
+            matchResultsSection.classList.add('hidden'); roundTitle.textContent = 'Sin ronda generada'; pairingsTableEl.innerHTML = '';
+        } else { matchResultsSection.classList.remove('hidden'); populateDuoDropdownsForMatchInput(); renderCurrentRoundMatchesList(); }
+    };
+
+    resetBtn.onclick = () => {
+        if (prompt('Escribe SEGURO para borrar TODO.') !== 'SEGURO') return;
+        players = []; history = []; stats = {}; detailedPlayerStats = {}; duoState = {}; roundCounter = 0; 
+        lastExtremes = null; currentSoloAssignments = {};
+        saveState(); renderAll(); updatePresetStyles();
+        pairingsTableEl.innerHTML = ''; roundTitle.textContent = 'Sin ronda generada';
+        matchResultsSection.classList.add('hidden'); playerStatsSection.classList.add('hidden');
+        historySectionEl.classList.add('hidden'); matrixSection.classList.add('hidden');
+    };
+
+    showMatrixBtn.onclick = () => {
+        matrixSection.classList.toggle('hidden');
+        if (!matrixSection.classList.contains('hidden')) { updateMatrixTable(); setTimeout(() => matrixSection.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100); }
+    };
+
+    // --- CSV EXPORT ---
+    function escapeCsvField(field) {
+        if (field === null || typeof field === 'undefined') return '';
+        const stringField = String(field);
+        if (stringField.includes(',') || stringField.includes('"') || stringField.includes('\n')) {
+            return `"${stringField.replace(/"/g, '""')}"`;
+        }
+        return stringField;
+    }
+
+    function exportMatchesToCSV() {
+        if (history.length === 0) { alert("No hay historial de partidos para exportar."); return; }
+        const csvRows = [];
+        const headers = ["RoundNumber", "DuoA_Player1", "DuoA_Player2", "ScoreA", "DuoB_Player1", "DuoB_Player2", "ScoreB"];
+        csvRows.push(headers.join(','));
+        history.forEach(roundData => {
+            if (roundData.matches && roundData.matches.length > 0) {
+                roundData.matches.forEach(match => {
+                    const row = [
+                        roundData.roundNumber,
+                        match.duoAPlayers[0] || '', match.duoAPlayers[1] || '', match.scoreA,
+                        match.duoBPlayers[0] || '', match.duoBPlayers[1] || '', match.scoreB
+                    ];
+                    csvRows.push(row.map(escapeCsvField).join(','));
+                });
+            }
+        });
+        if (csvRows.length <= 1) { alert("No hay partidos registrados para exportar a CSV."); return; }
+        const csvString = csvRows.join('\n');
+        const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = 'badminton_match_history.csv';
+        document.body.appendChild(a); a.click();
+        document.body.removeChild(a); URL.revokeObjectURL(url);
+        alert("Historial de partidos exportado como badminton_match_history.csv");
+    }
+    exportDataBtn.onclick = exportMatchesToCSV; // Asignar la nueva función al botón
+
+    // --- INITIALIZATION ---
+    function renderAll() {
+        renderPlayers(); renderCurrentRoundDisplay(); renderGeneratedRoundsHistory(); 
+        renderPlayerStatsTable(); updateMatrixTable();
+    }
+    loadState(); buildPresetButtons(); renderAll(); 
+    playerSection.classList.toggle('hidden', players.length === 0);
+    roundSection.classList.toggle('hidden', players.length < 2);
+    historySectionEl.classList.toggle('hidden', history.length === 0);
+    playerStatsSection.classList.toggle('hidden', Object.keys(detailedPlayerStats).filter(k => detailedPlayerStats[k].mp > 0).length === 0 || players.length === 0);
+    if (history.length > 0) { matchResultsSection.classList.remove('hidden'); renderCurrentRoundDisplay(); renderCurrentRoundMatchesList(); } 
+    else { matchResultsSection.classList.add('hidden'); }
+    if (players.length < 2) matrixSection.classList.add('hidden');
+  </script>
+</body>
+</html>
