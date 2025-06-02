@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Generador de duplas – Bádminton</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+  </head>
+  <body class="bg-gray-100 min-h-screen flex flex-col items-center p-4">
+    <h1 class="text-2xl font-bold mb-4">Generador de duplas – Bádminton</h1>
+
+    <!-- Sección: Añadir jugador -->
+    <section id="add-player" class="bg-white shadow-md rounded-2xl p-4 w-full max-w-md mb-6">
+      <h2 class="text-lg font-semibold mb-2">Añadir jugador</h2>
+      <div class="flex flex-col gap-2">
+        <input id="player-name" type="text" placeholder="Nombre" class="border rounded-xl p-2" />
+        <button id="btn-add" class="bg-blue-600 text-white rounded-xl p-2 active:scale-95">Añadir</button>
+      </div>
+    </section>
+
+    <!-- Lista de jugadores -->
+    <section id="player-list" class="bg-white shadow-md rounded-2xl p-4 w-full max-w-md mb-6 hidden">
+      <h2 class="text-lg font-semibold mb-2">Jugadores</h2>
+      <ul id="list" class="space-y-1 text-sm"></ul>
+    </section>
+
+    <!-- Controles y ronda actual -->
+    <section id="round-controls" class="bg-white shadow-md rounded-2xl p-4 w-full max-w-md mb-6 hidden">
+      <div class="flex justify-between items-center mb-4">
+        <h2 id="round-title" class="text-lg font-semibold text-gray-600 italic">Sin ronda generada</h2>
+        <div class="space-x-2">
+          <button id="next" class="bg-green-500 text-white rounded-xl px-3 py-1">Generar ronda</button>
+          <button id="delete-round" class="bg-yellow-500 text-white rounded-xl px-3 py-1">Borrar ronda</button>
+          <button id="reset" class="bg-red-500 text-white rounded-xl px-3 py-1">Resetear</button>
+        </div>
+      </div>
+      <div class="overflow-x-auto">
+        <table id="pairings-table" class="w-full text-sm text-center border-collapse"></table>
+      </div>
+    </section>
+
+    <!-- Historial -->
+    <section id="history-section" class="bg-white shadow-md rounded-2xl p-4 w-full max-w-md mb-6 hidden">
+      <h2 class="text-lg font-semibold mb-2">Rondas anteriores</h2>
+      <div id="history-list" class="space-y-3 max-h-60 overflow-y-auto"></div>
+    </section>
+
+    <script>
+      /******************** Referencias DOM ********************/
+      const nameInput = document.getElementById("player-name");
+      const btnAdd = document.getElementById("btn-add");
+      const playerListEl = document.getElementById("player-list");
+      const listEl = document.getElementById("list");
+      const roundControls = document.getElementById("round-controls");
+      const roundTitle = document.getElementById("round-title");
+      const pairTable = document.getElementById("pairings-table");
+      const nextBtn = document.getElementById("next");
+      const deleteRoundBtn = document.getElementById("delete-round");
+      const resetBtn = document.getElementById("reset");
+      const historySection = document.getElementById("history-section");
+      const historyList = document.getElementById("history-list");
+
+      /******************** Estado ********************/
+      let players = JSON.parse(localStorage.getItem("players") || "[]");
+      let round = 0;
+      /** @type {{round:number,pairs:string[][],solo:string|null}[]} */
+      let history = JSON.parse(localStorage.getItem("history") || "[]");
+      let lastExtremes = null; // jugadores en duos 1‑2 y último‑2 de la ronda previa
+
+      const saveState = () => {
+        localStorage.setItem("players", JSON.stringify(players));
+        localStorage.setItem("history", JSON.stringify(history));
+      };
+
+      /******************** Render jugadores ********************/
+      function renderPlayers() {
+        if (players.length === 0) {
+          playerListEl.classList.add("hidden");
+          roundControls.classList.add("hidden");
+          historySection.classList.add("hidden");
+          return;
+        }
+        playerListEl.classList.remove("hidden");
+        listEl.innerHTML = "";
+        players.forEach((p, i) => {
+          const li = document.createElement("li");
+          li.className = "flex justify-between items-center bg-gray-50 rounded-xl p-2";
+          li.innerHTML = `<span>${i + 1}. ${p.name}</span>`;
+          const del = document.createElement("button");
+          del.textContent = "✕";
+          del.className = "text-red-500";
+          del.onclick = () => {
+            players.splice(i, 1);
+            saveState();
+            renderPlayers();
+          };
+          li.appendChild(del);
+          listEl.appendChild(li);
+        });
+        const showControls = players.length >= 3;
+        roundControls.classList.toggle("hidden", !showControls);
+        historySection.classList.toggle("hidden", !showControls);
+      }
+
+      /******************** Round‑Robin + verificación de extremos ********************/
+      function generatePairs(idx) {
+        const base = [...players];
+        const odd = base.length % 2 === 1;
+        if (odd) base.push({ name: "DESCANSO", bye: true });
+        const n = base.length;
+        const cycle = odd ? n : n - 1;
+        // Algoritmo círculo base
+        function circleStep(arr) {
+          const first = arr[0];
+          const rest = arr.slice(1);
+          return [first, rest[rest.length - 1], ...rest.slice(0, -1)];
+        }
+        let arrangement = base;
+        for (let i = 0; i < (idx % cycle); i++) arrangement = circleStep(arrangement);
+
+        // Emparejar
+        const pairsAll = [];
+        let solo = null;
+        for (let i = 0; i < n / 2; i++) {
+          const a = arrangement[i];
+          const b = arrangement[n - 1 - i];
+          if (a.bye || b.bye) solo = a.bye ? b.name : a.name;
+          else pairsAll.push([a.name, b.name]);
+        }
+
+        // Necesitamos al menos 4 duos para aplicar la regla de extremos
+        if (pairsAll.length < 4) return { pairs: pairsAll, solo, extremes: null };
+
+        // Buscar un desplazamiento que cambie extremos
+        for (let shift = 0; shift < pairsAll.length; shift++) {
+          const ordered = pairsAll.slice(shift).concat(pairsAll.slice(0, shift));
+          const newExtremes = [
+            ...ordered[0],
+            ...ordered[1],
+            ...ordered[ordered.length - 2],
+            ...ordered[ordered.length - 1],
+          ].sort();
+          if (!lastExtremes || JSON.stringify(newExtremes) !== JSON.stringify(lastExtremes)) {
+            return { pairs: ordered, solo, extremes: newExtremes };
+          }
+        }
+        // Si no hay desplazamiento válido, devuelve como está
+        return { pairs: pairsAll, solo, extremes: [...pairsAll[0], ...pairsAll[1], ...pairsAll[pairsAll.length - 2], ...pairsAll[pairsAll.length - 1]].sort() };
+      }
+
+      /******************** Mostrar ronda ********************/
+      function showRound(pairs, solo) {
+        pairTable.innerHTML = "";
+        pairTable.innerHTML += "<tr><th class='border p-1'>#</th><th class='border p-1'>Dupla</th></tr>";
+        pairs.forEach((p, i) => {
+          pairTable.innerHTML += `<tr><td class='border p-1 font-medium'>Duo ${i + 1}</td><td class='border p-1'>${p[0]} + ${p[1]}</td></tr>`;
+        });
+        if (solo)
+          pairTable.innerHTML += `<tr><td class='border p-1 font-medium'>Solo</td><td class='border p-1 text-red-600'>${solo}</td></tr>`;
+      }
+
+      /******************** Historial ********************/
+      function renderHistory() {
+        historyList.innerHTML = "";
+        history.slice().reverse().forEach((h) => {
+          const div = document.createElement("div");
+          div.className = "border rounded-xl overflow-hidden";
+          let html = `<table class='w-full text-xs text-center border-collapse'><tr><th colspan='3' class='bg-gray-200 p-1'>Ronda ${h.round}</th></tr>`;
+          h.pairs.forEach((p, i) => {
+            html += `<tr><td class='border p-1 font-medium'>Duo ${i + 1}</td><td class='border p-1'>${p[0]}</td><td class='border p-1'>${p[1]}</td></tr>`;
+          });
+          if (h.solo) html += `<tr><td class='border p-1 font-medium'>Solo</td><td colspan='2' class='border p-1 text-red-600'>${h.solo}</td></tr>`;
+          html += "</table>";
+          div.innerHTML = html;
+          historyList.appendChild(div);
+        });
+      }
+
+      /******************** Eventos ********************/
+      btnAdd.onclick = () => {
+        const name = nameInput.value.trim();
+        if (!name) return;
+        players.push({ name });
+        nameInput.value = "";
+        saveState();
+        renderPlayers();
+      };
+
+      nextBtn.onclick = () => {
+        if (players.length < 3) return;
+        const { pairs, solo, extremes } = generatePairs(round);
+        roundTitle.textContent = `Ronda (${round + 1}) actual`;
+        showRound(pairs, solo);
+        history.push({ round: round + 1, pairs, solo });
+        lastExtremes = extremes;
+        saveState();
+        renderHistory();
+        round++;
+      };
+
+      deleteRoundBtn.onclick = () => {
+        if (!history.length) return;
+        if (prompt("Escribe SEGURO para borrar la última ronda") !== "SEGURO") return;
+        history.pop();
+        if (round > 0) round--;
+        lastExtremes = null;
+        saveState();
+        if (history.length) {
+          const last = history[history.length - 1];
+          roundTitle.textContent = `Ronda (${last.round}) actual`;
+          showRound(last.pairs, last.solo);
+        } else {
+          roundTitle.textContent = "Sin ronda generada";
+          pairTable.innerHTML = "";
+        }
+        renderHistory();
+      };
+
+      resetBtn.onclick = () => {
+        if (prompt("Escribe SEGURO para borrar TODO") !== "SEGURO") return;
+        players = [];
+        history = [];
+        round = 0;
+        lastExtremes = null;
+        saveState();
+        pairTable.innerHTML = "";
+        roundTitle.textContent = "Sin ronda generada";
+        renderPlayers();
+        renderHistory();
+      };
+
+      /******************** Init ********************/
+      renderPlayers();
+      renderHistory();
+    </script>
+  </body>
+</html>
