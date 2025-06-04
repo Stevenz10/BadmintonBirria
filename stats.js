@@ -2,6 +2,12 @@ const supabaseUrl = 'https://dqaxkapftyoemlzwbjgx.supabase.co';
 const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRxYXhrYXBmdHlvZW1sendiamd4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg5MjEzMzYsImV4cCI6MjA2NDQ5NzMzNn0.onSRsrHzLpFaVYCdrxYoa8uFD2WDcd2H0PdVEUmM8UA';
 const supa = supabase.createClient(supabaseUrl, supabaseKey);
 
+// ----- Parámetros de Elo (inspirados en el script en Python) -----
+const ELO_INITIAL = 875;
+const K_FACTOR = 32;
+const UMBRAL_ELO_B = 850;
+const UMBRAL_ELO_A = 1000;
+
 const birriaSelect = document.getElementById('birria-select');
 const statsTable = document.getElementById('stats-table');
 const playerSelect = document.getElementById('player-select');
@@ -11,6 +17,44 @@ const duoTable = document.getElementById('duo-table');
 let partidas = [];
 let players = new Set();
 let birrias = [];
+let eloRatings = {};
+
+function expectedScore(eloSelf, eloOpp) {
+  return 1 / (1 + 10 ** ((eloOpp - eloSelf) / 400));
+}
+
+function getGroup(elo) {
+  if (elo >= UMBRAL_ELO_A) return 'A';
+  if (elo >= UMBRAL_ELO_B) return 'B';
+  return 'C';
+}
+
+function computeElo(matches) {
+  const ratings = {};
+  const sorted = [...matches].sort((a, b) => a.id - b.id);
+  sorted.forEach(m => {
+    const a1 = m.dupla_a?.player_a?.name;
+    const a2 = m.dupla_a?.player_b?.name;
+    const b1 = m.dupla_b?.player_a?.name;
+    const b2 = m.dupla_b?.player_b?.name;
+    if (!a1 || !a2 || !b1 || !b2) return;
+
+    [a1, a2, b1, b2].forEach(p => { if (!ratings[p]) ratings[p] = ELO_INITIAL; });
+
+    const eloA = (ratings[a1] + ratings[a2]) / 2;
+    const eloB = (ratings[b1] + ratings[b2]) / 2;
+    const expectedA = expectedScore(eloA, eloB);
+    const winA = m.winner_dupla === m.dupla_a?.id;
+    const scoreA = winA ? 1 : 0;
+    const delta = K_FACTOR * (scoreA - expectedA);
+
+    ratings[a1] += delta;
+    ratings[a2] += delta;
+    ratings[b1] -= delta;
+    ratings[b2] -= delta;
+  });
+  return ratings;
+}
 
 async function loadBirrias() {
   const { data, error } = await supa
@@ -45,6 +89,7 @@ async function loadPartidas() {
     const b2 = p.dupla_b?.player_b?.name;
     [a1, a2, b1, b2].forEach(n => { if (n) players.add(n); });
   });
+  eloRatings = computeElo(partidas);
   renderGeneral();
   buildPlayerSelect();
 }
@@ -80,11 +125,13 @@ function renderGeneral() {
       if (winner === 'B') stats[n].wins += 1;
     });
   });
-  statsTable.innerHTML = '<tr><th class="border p-2 bg-gray-100">Jugador</th><th class="border p-2 bg-gray-100">WinRate</th><th class="border p-2 bg-gray-100">Partidas</th><th class="border p-2 bg-gray-100">Puntos</th></tr>';
+  statsTable.innerHTML = '<tr><th class="border p-2 bg-gray-100">Jugador</th><th class="border p-2 bg-gray-100">Elo</th><th class="border p-2 bg-gray-100">Grupo</th><th class="border p-2 bg-gray-100">WinRate</th><th class="border p-2 bg-gray-100">Partidas</th><th class="border p-2 bg-gray-100">Puntos</th></tr>';
   Object.keys(stats).sort().forEach(n => {
     const s = stats[n];
+    const elo = eloRatings[n] ? eloRatings[n].toFixed(1) : ELO_INITIAL.toFixed(1);
+    const group = getGroup(eloRatings[n] ?? ELO_INITIAL);
     const winRate = s.played ? ((s.wins / s.played) * 100).toFixed(1) + '%' : '-';
-    statsTable.innerHTML += `<tr><td class='border p-2'>${n}</td><td class='border p-2'>${winRate}</td><td class='border p-2'>${s.played}</td><td class='border p-2'>${s.points}</td></tr>`;
+    statsTable.innerHTML += `<tr><td class='border p-2'>${n}</td><td class='border p-2'>${elo}</td><td class='border p-2'>${group}</td><td class='border p-2'>${winRate}</td><td class='border p-2'>${s.played}</td><td class='border p-2'>${s.points}</td></tr>`;
   });
 }
 
@@ -124,7 +171,9 @@ function renderPlayer(name) {
     }
   });
   const winRate = info.played ? ((info.wins / info.played)*100).toFixed(1)+'%' : '-';
-  playerInfo.textContent = `${name}: WinRate ${winRate}, Partidas ${info.played}, Puntos ${info.points}`;
+  const elo = eloRatings[name] ? eloRatings[name].toFixed(1) : ELO_INITIAL.toFixed(1);
+  const group = getGroup(eloRatings[name] ?? ELO_INITIAL);
+  playerInfo.textContent = `${name}: Elo ${elo} (${group}), WinRate ${winRate}, Partidas ${info.played}, Puntos ${info.points}`;
   duoTable.innerHTML = '<tr><th class="border p-2 bg-gray-100">Compañero</th><th class="border p-2 bg-gray-100">WinRate</th><th class="border p-2 bg-gray-100">Partidas</th></tr>';
   Object.keys(duoStats).sort().forEach(m => {
     const s = duoStats[m];
