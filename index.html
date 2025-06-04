@@ -100,6 +100,9 @@
   <section id="match-section" class="hidden card bg-white rounded-2xl p-6 w-full max-w-md">
     <h2 class="text-xl font-semibold mb-4">Registrar partida</h2>
     <div class="flex flex-col gap-3">
+      <label for="select-match" class="text-sm text-gray-600">Partida guardada</label>
+      <select id="select-match" class="border rounded-xl p-2"></select>
+
       <label for="select-round" class="text-sm text-gray-600">Ronda</label>
       <select id="select-round" class="border rounded-xl p-2"></select>
 
@@ -115,7 +118,10 @@
       <label for="score-b" class="text-sm text-gray-600">Marcador B</label>
       <input id="score-b" type="number" min="0" class="border rounded-xl p-2" />
 
-      <button id="save-match-btn" class="bg-green-600 hover:bg-green-700 text-white rounded-xl p-2 text-sm font-medium">Guardar</button>
+      <div class="flex gap-2">
+        <button id="save-match-btn" class="flex-1 bg-green-600 hover:bg-green-700 text-white rounded-xl p-2 text-sm font-medium">Guardar</button>
+        <button id="delete-match-btn" class="flex-1 bg-red-600 hover:bg-red-700 text-white rounded-xl p-2 text-sm font-medium">Borrar</button>
+      </div>
     </div>
   </section>
 
@@ -159,6 +165,8 @@
     const scoreAInput     = qs('#score-a');
     const scoreBInput     = qs('#score-b');
     const saveMatchBtn    = qs('#save-match-btn');
+    const selectMatch     = qs('#select-match');
+    const deleteMatchBtn  = qs('#delete-match-btn');
 
     let players  = JSON.parse(localStorage.getItem('players')  || '[]');
     let history  = JSON.parse(localStorage.getItem('history')  || '[]');
@@ -474,6 +482,7 @@
 
     /* =================== Rondas y duplas desde Supabase =================== */
     let roundsData = [];
+    let matchesData = [];
     async function loadRounds() {
       let query = supa.from('rondas').select('id, round_num').order('round_num', { ascending: true });
       if (currentBirriaId) query = query.eq('birria_id', currentBirriaId);
@@ -526,6 +535,28 @@
       });
       const r = roundsData.find(r => r.id === rondaId);
       roundTitle.textContent = r ? `Ronda (${r.round_num}) guardada` : 'Ronda';
+
+      await loadMatches(rondaId);
+    }
+
+    async function loadMatches(rondaId) {
+      const { data, error } = await supa
+        .from('partidas')
+        .select('id, dupla_a_id, dupla_b_id, score_a, score_b')
+        .eq('ronda_id', rondaId)
+        .order('id');
+      if (error) {
+        console.error(error);
+        return;
+      }
+      matchesData = data || [];
+      selectMatch.innerHTML = '<option value="">Nueva partida</option>';
+      matchesData.forEach(m => {
+        const opt = document.createElement('option');
+        opt.value = m.id;
+        opt.textContent = `${m.score_a}-${m.score_b}`;
+        selectMatch.appendChild(opt);
+      });
     }
 
     /* =================== Eventos =================== */
@@ -661,6 +692,7 @@
       } else {
         pairTable.innerHTML = '';
         roundTitle.textContent = 'Sin ronda seleccionada';
+        selectMatch.innerHTML = '<option value="">Nueva partida</option>';
       }
     };
 
@@ -675,14 +707,22 @@
         return;
       }
       const winner = sA >= sB ? duplaA : duplaB;
-      const { error } = await supa.from('partidas').insert({
-        ronda_id: rondaId,
-        dupla_a_id: duplaA,
-        dupla_b_id: duplaB,
-        score_a: sA,
-        score_b: sB,
-        winner_dupla: winner,
-      });
+      let error;
+      if (selectMatch.value) {
+        ({ error } = await supa
+          .from('partidas')
+          .update({ dupla_a_id: duplaA, dupla_b_id: duplaB, score_a: sA, score_b: sB, winner_dupla: winner })
+          .eq('id', selectMatch.value));
+      } else {
+        ({ error } = await supa.from('partidas').insert({
+          ronda_id: rondaId,
+          dupla_a_id: duplaA,
+          dupla_b_id: duplaB,
+          score_a: sA,
+          score_b: sB,
+          winner_dupla: winner,
+        }));
+      }
       if (error) {
         alert('Error al guardar');
         console.error(error);
@@ -690,6 +730,39 @@
         alert('Partido guardado');
         scoreAInput.value = '';
         scoreBInput.value = '';
+        selectMatch.value = '';
+        await loadMatches(rondaId);
+      }
+    };
+
+    deleteMatchBtn.onclick = async () => {
+      const id = selectMatch.value;
+      if (!id) return;
+      if (!confirm('¿Borrar partida?')) return;
+      const { error } = await supa.from('partidas').delete().eq('id', id);
+      if (!error) {
+        selectMatch.value = '';
+        await loadMatches(selectRound.value);
+        scoreAInput.value = '';
+        scoreBInput.value = '';
+      }
+    };
+
+    selectMatch.onchange = () => {
+      const id = selectMatch.value;
+      if (!id) {
+        scoreAInput.value = '';
+        scoreBInput.value = '';
+        selectDuplaA.value = '';
+        selectDuplaB.value = '';
+        return;
+      }
+      const m = matchesData.find(x => x.id === id);
+      if (m) {
+        selectDuplaA.value = m.dupla_a_id;
+        selectDuplaB.value = m.dupla_b_id;
+        scoreAInput.value = m.score_a;
+        scoreBInput.value = m.score_b;
       }
     };
 
