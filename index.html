@@ -220,6 +220,24 @@
       return data.id;
     }
 
+    async function refreshStatsFromDB() {
+      const { data, error } = await supa
+        .from('duplas')
+        .select('position, player_a(name), player_b(name)');
+      if (error) { console.error(error); return; }
+      stats = {};
+      (data || []).forEach(d => {
+        const pos = d.position || 0;
+        const names = [d.player_a?.name, d.player_b?.name];
+        names.forEach(n => {
+          if (!n) return;
+          stats[n] = stats[n] || { sum: 0, count: 0 };
+          stats[n].sum += pos;
+          stats[n].count += 1;
+        });
+      });
+    }
+
     async function loadBirrias() {
       const { data, error } = await supa
         .from('birrias')
@@ -544,7 +562,7 @@
     async function loadMatches(rondaId) {
       const { data, error } = await supa
         .from('partidas')
-        .select('id, dupla_a_id, dupla_b_id, score_a, score_b')
+        .select('id, dupla_a_id, dupla_b_id, score_a, score_b, dupla_a:dupla_a_id(player_a(name), player_b(name)), dupla_b:dupla_b_id(player_a(name), player_b(name))')
         .eq('ronda_id', rondaId)
         .order('id');
       if (error) {
@@ -556,7 +574,11 @@
       matchesData.forEach(m => {
         const opt = document.createElement('option');
         opt.value = m.id;
-        opt.textContent = `${m.score_a}-${m.score_b}`;
+        const a1 = m.dupla_a?.player_a?.name || 'A';
+        const a2 = m.dupla_a?.player_b?.name || 'B';
+        const b1 = m.dupla_b?.player_a?.name || 'C';
+        const b2 = m.dupla_b?.player_b?.name || 'D';
+        opt.textContent = `${a1} + ${a2} vs ${b1} + ${b2}`;
         selectMatch.appendChild(opt);
       });
 
@@ -582,13 +604,26 @@
       togglePresets.onclick = () => presetList.classList.toggle('hidden');
 
       birriaSelect.onchange = async () => {
-        currentBirriaId = birriaSelect.value || null;
+        const id = birriaSelect.value || null;
+        if (!id) {
+          currentBirriaId = null;
+          birriaInfo.textContent = '';
+          await loadRounds();
+          return;
+        }
         const sel = birriaSelect.options[birriaSelect.selectedIndex];
-        birriaInfo.textContent = sel && sel.value ? `Birria ${sel.textContent}` : '';
+        const ok = confirm(`¿Usar la birria del ${sel.textContent}?`);
+        if (!ok) {
+          birriaSelect.value = currentBirriaId || '';
+          return;
+        }
+        currentBirriaId = id;
+        birriaInfo.textContent = `Birria ${sel.textContent}`;
         await loadRounds();
       };
 
       newBirriaBtn.onclick = async () => {
+        if (!confirm('¿Crear nueva birria?')) return;
         await createBirria();
         birriaSelect.value = currentBirriaId;
         history = [];
@@ -620,7 +655,11 @@
         updateMatrixTable();
         round++;
         currentSolo = data.solo;
-        if (currentBirriaId) lastRondaId = await saveRoundToSupabase(data.pairs, round);
+        if (currentBirriaId) {
+          lastRondaId = await saveRoundToSupabase(data.pairs, round);
+          await refreshStatsFromDB();
+          renderPlayers();
+        }
       };
 
       assignSoloBtn.onclick = async () => {
@@ -637,6 +676,8 @@
           const aId = await getPlayerId(currentSolo);
           const bId = await getPlayerId(partner);
           await supa.from('duplas').insert({ ronda_id: lastRondaId, player_a: aId, player_b: bId, position: last.pairs.length });
+          await refreshStatsFromDB();
+          renderPlayers();
         }
         currentSolo = null;
       };
@@ -736,6 +777,8 @@
         scoreBInput.value = '';
         selectMatch.value = '';
         await loadMatches(rondaId);
+        await refreshStatsFromDB();
+        renderPlayers();
       }
     };
 
@@ -747,6 +790,8 @@
       if (!error) {
         selectMatch.value = '';
         await loadMatches(selectRound.value);
+        await refreshStatsFromDB();
+        renderPlayers();
         scoreAInput.value = '';
         scoreBInput.value = '';
       }
@@ -795,6 +840,8 @@
           appDiv.classList.remove('hidden');
           birriaSection.classList.remove('hidden');
           await loadBirrias();
+          await refreshStatsFromDB();
+          renderPlayers();
         } else {
           loginSection.classList.remove('hidden');
           appDiv.classList.add('hidden');
