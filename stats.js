@@ -44,7 +44,8 @@ function computeElo(matches) {
     const eloA = (ratings[a1] + ratings[a2]) / 2;
     const eloB = (ratings[b1] + ratings[b2]) / 2;
     const expectedA = expectedScore(eloA, eloB);
-    const winA = m.winner_dupla === m.dupla_a?.id;
+    const winnerId = parseInt(m.winner_dupla, 10);
+    const winA = winnerId === m.dupla_a?.id;
     const scoreA = winA ? 1 : 0;
     const delta = K_FACTOR * (scoreA - expectedA);
 
@@ -109,7 +110,8 @@ function renderGeneral() {
   partidas.forEach(p => {
     const duoA = [p.dupla_a?.player_a?.name, p.dupla_a?.player_b?.name];
     const duoB = [p.dupla_b?.player_a?.name, p.dupla_b?.player_b?.name];
-    const winner = p.winner_dupla === p.dupla_a?.id ? 'A' : (p.winner_dupla === p.dupla_b?.id ? 'B' : null);
+    const winnerId = parseInt(p.winner_dupla, 10);
+    const winner = winnerId === p.dupla_a?.id ? 'A' : (winnerId === p.dupla_b?.id ? 'B' : null);
     duoA.forEach(n => {
       if (!n) return;
       stats[n] = stats[n] || { wins:0, played:0, points:0 };
@@ -146,8 +148,9 @@ function renderPlayer(name) {
   partidas.forEach(p => {
     const duoA = [p.dupla_a?.player_a?.name, p.dupla_a?.player_b?.name];
     const duoB = [p.dupla_b?.player_a?.name, p.dupla_b?.player_b?.name];
-    const winA = p.winner_dupla === p.dupla_a?.id;
-    const winB = p.winner_dupla === p.dupla_b?.id;
+    const winnerId = parseInt(p.winner_dupla, 10);
+    const winA = winnerId === p.dupla_a?.id;
+    const winB = winnerId === p.dupla_b?.id;
     if (duoA.includes(name)) {
       info.played += 1;
       info.points += p.score_a || 0;
