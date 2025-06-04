@@ -792,7 +792,13 @@
           birriaSection.classList.remove('hidden');
           await loadBirrias();
           await refreshStatsFromDB();
-          renderPlayers();
+          playerSection.classList.add('hidden');
+          roundSection.classList.add('hidden');
+          qs('#history-section').classList.add('hidden');
+          matrixSection.classList.add('hidden');
+          matchSection.classList.add('hidden');
+          pairTable.innerHTML = '';
+          roundTitle.textContent = 'Sin ronda seleccionada';
         } else {
           loginSection.classList.remove('hidden');
           appDiv.classList.add('hidden');
@@ -828,6 +834,3 @@
 
     /* =================== Init =================== */
     buildPresetButtons();
-    renderPlayers();
-    renderHistory();
-    updateMatrixTable();
