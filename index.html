@@ -206,17 +206,18 @@
     }
 
     async function createBirria() {
-      const name = prompt('Nombre de la birria?');
-      if (!name) return null;
+      const nombre = prompt('Nombre de la birria?');
+      if (!nombre) return null;
       const play_date = new Date().toISOString().slice(0,10);
       const { data, error } = await supa
         .from('birrias')
-        .insert({ name, play_date })
-        .select('id, name, play_date')
+        .insert({ play_date, notes: nombre })
+        .select('id, play_date, notes')
         .single();
       if (error) { console.error(error); return null; }
       currentBirriaId = data.id;
-      birriaInfo.textContent = `Birria ${data.name}`;
+      birriaInfo.textContent = `Birria ${data.notes || data.play_date}`;
+
       birriaSection.classList.remove('hidden');
       newBirriaBtn.classList.add('hidden');
       deleteBirriaBtn.classList.remove('hidden');
@@ -246,14 +247,16 @@
     async function loadBirrias() {
       const { data, error } = await supa
         .from('birrias')
-        .select('id, name, play_date')
+        .select('id, play_date, notes')
+
         .order('play_date', { ascending: false });
       if (error) { console.error(error); return; }
       birriaSelect.innerHTML = '<option value="">Elige birria</option>';
       (data || []).forEach(b => {
         const opt = document.createElement('option');
         opt.value = b.id;
-        opt.textContent = b.name || b.play_date;
+        opt.textContent = b.notes || b.play_date;
+
         birriaSelect.appendChild(opt);
       });
       if (currentBirriaId) birriaSelect.value = currentBirriaId;
