@@ -217,6 +217,7 @@
       if (error) { console.error(error); return null; }
       currentBirriaId = data.id;
       birriaInfo.textContent = `Birria ${data.notes || data.play_date}`;
+
       birriaSection.classList.remove('hidden');
       newBirriaBtn.classList.add('hidden');
       deleteBirriaBtn.classList.remove('hidden');
@@ -247,6 +248,7 @@
       const { data, error } = await supa
         .from('birrias')
         .select('id, play_date, notes')
+
         .order('play_date', { ascending: false });
       if (error) { console.error(error); return; }
       birriaSelect.innerHTML = '<option value="">Elige birria</option>';
@@ -254,6 +256,7 @@
         const opt = document.createElement('option');
         opt.value = b.id;
         opt.textContent = b.notes || b.play_date;
+
         birriaSelect.appendChild(opt);
       });
       if (currentBirriaId) birriaSelect.value = currentBirriaId;
