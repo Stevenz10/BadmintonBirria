@@ -76,7 +76,9 @@ async function loadBirrias() {
 async function loadPartidas() {
   let query = supa
     .from('partidas')
-    .select('id, score_a, score_b, winner_dupla, rondas(birria_id), dupla_a:dupla_a_id(player_a(name), player_b(name)), dupla_b:dupla_b_id(player_a(name), player_b(name))');
+    .select(`id, score_a, score_b, winner_dupla, rondas(birria_id),
+      dupla_a:dupla_a_id(id, player_a(name), player_b(name)),
+      dupla_b:dupla_b_id(id, player_a(name), player_b(name))`);
   const birriaId = birriaSelect.value;
   if (birriaId) query = query.eq('rondas.birria_id', birriaId);
   const { data, error } = await query;
@@ -114,27 +116,32 @@ function renderGeneral() {
     const winner = winnerId === p.dupla_a?.id ? 'A' : (winnerId === p.dupla_b?.id ? 'B' : null);
     duoA.forEach(n => {
       if (!n) return;
-      stats[n] = stats[n] || { wins:0, played:0, points:0 };
+      stats[n] = stats[n] || { wins:0, played:0, pf:0, pc:0 };
       stats[n].played += 1;
-      stats[n].points += p.score_a || 0;
+      stats[n].pf += p.score_a || 0;
+      stats[n].pc += p.score_b || 0;
       if (winner === 'A') stats[n].wins += 1;
     });
     duoB.forEach(n => {
       if (!n) return;
-      stats[n] = stats[n] || { wins:0, played:0, points:0 };
+      stats[n] = stats[n] || { wins:0, played:0, pf:0, pc:0 };
       stats[n].played += 1;
-      stats[n].points += p.score_b || 0;
+      stats[n].pf += p.score_b || 0;
+      stats[n].pc += p.score_a || 0;
       if (winner === 'B') stats[n].wins += 1;
     });
   });
-  statsTable.innerHTML = '<tr><th class="border p-2 bg-gray-100">Jugador</th><th class="border p-2 bg-gray-100">Elo</th><th class="border p-2 bg-gray-100">Grupo</th><th class="border p-2 bg-gray-100">WinRate</th><th class="border p-2 bg-gray-100">Partidas</th><th class="border p-2 bg-gray-100">Puntos</th></tr>';
-  Object.keys(stats).sort().forEach(n => {
-    const s = stats[n];
-    const elo = eloRatings[n] ? eloRatings[n].toFixed(1) : ELO_INITIAL.toFixed(1);
-    const group = getGroup(eloRatings[n] ?? ELO_INITIAL);
-    const winRate = s.played ? ((s.wins / s.played) * 100).toFixed(1) + '%' : '-';
-    statsTable.innerHTML += `<tr><td class='border p-2'>${n}</td><td class='border p-2'>${elo}</td><td class='border p-2'>${group}</td><td class='border p-2'>${winRate}</td><td class='border p-2'>${s.played}</td><td class='border p-2'>${s.points}</td></tr>`;
-  });
+  statsTable.innerHTML = '<tr><th class="border p-2 bg-gray-100">Jugador</th><th class="border p-2 bg-gray-100">Elo</th><th class="border p-2 bg-gray-100">Grupo</th><th class="border p-2 bg-gray-100">WinRate</th><th class="border p-2 bg-gray-100">Partidas</th><th class="border p-2 bg-gray-100">Puntos Totales</th></tr>';
+  Object.keys(stats)
+    .sort((a, b) => (eloRatings[b] ?? ELO_INITIAL) - (eloRatings[a] ?? ELO_INITIAL))
+    .forEach(n => {
+      const s = stats[n];
+      const elo = eloRatings[n] ? eloRatings[n].toFixed(1) : ELO_INITIAL.toFixed(1);
+      const group = getGroup(eloRatings[n] ?? ELO_INITIAL);
+      const winRate = s.played ? ((s.wins / s.played) * 100).toFixed(1) + '%' : '-';
+      const diff = s.pf - s.pc;
+      statsTable.innerHTML += `<tr><td class='border p-2'>${n}</td><td class='border p-2'>${elo}</td><td class='border p-2'>${group}</td><td class='border p-2'>${winRate}</td><td class='border p-2'>${s.played}</td><td class='border p-2'>${diff}</td></tr>`;
+    });
 }
 
 function renderPlayer(name) {
@@ -143,7 +150,7 @@ function renderPlayer(name) {
     duoTable.innerHTML = '';
     return;
   }
-  const info = { wins:0, played:0, points:0 };
+  const info = { wins:0, played:0, pf:0, pc:0 };
   const duoStats = {};
   partidas.forEach(p => {
     const duoA = [p.dupla_a?.player_a?.name, p.dupla_a?.player_b?.name];
@@ -153,7 +160,8 @@ function renderPlayer(name) {
     const winB = winnerId === p.dupla_b?.id;
     if (duoA.includes(name)) {
       info.played += 1;
-      info.points += p.score_a || 0;
+      info.pf += p.score_a || 0;
+      info.pc += p.score_b || 0;
       if (winA) info.wins += 1;
       const mate = duoA[0] === name ? duoA[1] : duoA[0];
       if (mate) {
@@ -163,7 +171,8 @@ function renderPlayer(name) {
       }
     } else if (duoB.includes(name)) {
       info.played += 1;
-      info.points += p.score_b || 0;
+      info.pf += p.score_b || 0;
+      info.pc += p.score_a || 0;
       if (winB) info.wins += 1;
       const mate = duoB[0] === name ? duoB[1] : duoB[0];
       if (mate) {
@@ -176,7 +185,8 @@ function renderPlayer(name) {
   const winRate = info.played ? ((info.wins / info.played)*100).toFixed(1)+'%' : '-';
   const elo = eloRatings[name] ? eloRatings[name].toFixed(1) : ELO_INITIAL.toFixed(1);
   const group = getGroup(eloRatings[name] ?? ELO_INITIAL);
-  playerInfo.textContent = `${name}: Elo ${elo} (${group}), WinRate ${winRate}, Partidas ${info.played}, Puntos ${info.points}`;
+  const diff = info.pf - info.pc;
+  playerInfo.textContent = `${name}: Elo ${elo} (${group}), WinRate ${winRate}, Partidas ${info.played}, Puntos Totales ${diff}`;
   duoTable.innerHTML = '<tr><th class="border p-2 bg-gray-100">Compañero</th><th class="border p-2 bg-gray-100">WinRate</th><th class="border p-2 bg-gray-100">Partidas</th></tr>';
   Object.keys(duoStats).sort().forEach(m => {
     const s = duoStats[m];
