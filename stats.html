@@ -30,7 +30,9 @@
   <section class="card bg-white rounded-2xl p-6 w-full max-w-md shadow-lg" id="player-section">
     <h2 class="text-xl font-semibold mb-4">Estadísticas de Jugador</h2>
     <select id="player-select" class="border rounded-xl p-2 w-full mb-3"></select>
-    <div id="player-info" class="text-sm"></div>
+    <div class="overflow-x-auto mb-3">
+      <table id="player-info" class="min-w-full text-sm text-center border-collapse rounded-lg overflow-hidden shadow-md"></table>
+    </div>
     <h3 class="text-lg font-semibold mt-4">Duplas ganadoras</h3>
     <div class="overflow-x-auto">
       <table id="duo-table" class="min-w-full text-sm text-center border-collapse rounded-lg overflow-hidden shadow-md"></table>
