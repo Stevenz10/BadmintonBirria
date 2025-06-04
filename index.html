@@ -160,6 +160,7 @@
     const birriaInfo      = qs('#birria-info');
     const birriaSelect    = qs('#birria-select');
     const selectRound     = qs('#select-round');
+
     const selectDuplaA    = qs('#select-dupla-a');
     const selectDuplaB    = qs('#select-dupla-b');
     const scoreAInput     = qs('#score-a');
@@ -167,6 +168,7 @@
     const saveMatchBtn    = qs('#save-match-btn');
     const selectMatch     = qs('#select-match');
     const deleteMatchBtn  = qs('#delete-match-btn');
+
 
     let players  = JSON.parse(localStorage.getItem('players')  || '[]');
     let history  = JSON.parse(localStorage.getItem('history')  || '[]');
@@ -479,10 +481,10 @@
       });
       matrixTable.innerHTML = html;
     }
-
     /* =================== Rondas y duplas desde Supabase =================== */
     let roundsData = [];
     let matchesData = [];
+
     async function loadRounds() {
       let query = supa.from('rondas').select('id, round_num').order('round_num', { ascending: true });
       if (currentBirriaId) query = query.eq('birria_id', currentBirriaId);
@@ -557,6 +559,7 @@
         opt.textContent = `${m.score_a}-${m.score_b}`;
         selectMatch.appendChild(opt);
       });
+
     }
 
     /* =================== Eventos =================== */
@@ -693,6 +696,7 @@
         pairTable.innerHTML = '';
         roundTitle.textContent = 'Sin ronda seleccionada';
         selectMatch.innerHTML = '<option value="">Nueva partida</option>';
+
       }
     };
 
