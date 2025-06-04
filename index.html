@@ -5,15 +5,28 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Generador de Duplas – Bádminton</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
     /* Tailwind custom additions */
     .card:hover { @apply shadow-xl -translate-y-0.5 transition; }
   </style>
 </head>
 <body class="bg-gradient-to-br from-teal-100 via-sky-100 to-fuchsia-100 min-h-screen flex flex-col items-center p-4 gap-6">
+  <section id="login-section" class="card bg-white rounded-2xl p-6 w-full max-w-xs">
+    <h2 class="text-xl font-semibold mb-4 text-center">Login</h2>
+    <div class="flex flex-col gap-3">
+      <input id="login-email" type="email" placeholder="Email" class="border rounded-xl p-3" />
+      <input id="login-password" type="password" placeholder="Contraseña" class="border rounded-xl p-3" />
+      <button id="login-btn" class="bg-blue-600 hover:bg-blue-700 text-white rounded-xl p-2 text-sm font-medium">Iniciar sesión</button>
+      <button id="signup-btn" class="bg-gray-200 hover:bg-gray-300 rounded-xl p-2 text-sm font-medium">Registrarse</button>
+    </div>
+  </section>
+
+  <div id="app" class="hidden w-full flex flex-col items-center gap-6">
   <header class="text-center">
     <h1 class="text-3xl font-extrabold tracking-tight text-gray-800 drop-shadow-sm">Generador de Duplas – Bádminton</h1>
     <p class="text-sm text-gray-600 mt-1">Gestiona rondas equilibradas y visualiza combinaciones pendientes.</p>
+    <button id="logout-btn" class="mt-2 text-sm text-red-600 underline">Cerrar sesión</button>
   </header>
 
   <!-- 1. Añadir jugador / Presets -->
@@ -69,6 +82,29 @@
     <table id="matrix-table" class="text-xs border-collapse"></table>
   </section>
 
+  <!-- 6. Registrar partida -->
+  <section id="match-section" class="hidden card bg-white rounded-2xl p-6 w-full max-w-md">
+    <h2 class="text-xl font-semibold mb-4">Registrar partida</h2>
+    <div class="flex flex-col gap-3">
+      <label for="select-round" class="text-sm text-gray-600">Ronda</label>
+      <select id="select-round" class="border rounded-xl p-2"></select>
+
+      <label for="select-dupla-a" class="text-sm text-gray-600">Dupla A</label>
+      <select id="select-dupla-a" class="border rounded-xl p-2"></select>
+
+      <label for="select-dupla-b" class="text-sm text-gray-600">Dupla B</label>
+      <select id="select-dupla-b" class="border rounded-xl p-2"></select>
+
+      <label for="score-a" class="text-sm text-gray-600">Marcador A</label>
+      <input id="score-a" type="number" min="0" class="border rounded-xl p-2" />
+
+      <label for="score-b" class="text-sm text-gray-600">Marcador B</label>
+      <input id="score-b" type="number" min="0" class="border rounded-xl p-2" />
+
+      <button id="save-match-btn" class="bg-green-600 hover:bg-green-700 text-white rounded-xl p-2 text-sm font-medium">Guardar</button>
+    </div>
+  </section>
+
   <!-- ========= SCRIPT ========= -->
   <script>
     /* =================== Estado y utilidades =================== */
@@ -95,6 +131,13 @@
     const historyList     = qs('#history-list');
     const matrixSection   = qs('#matrix-section');
     const matrixTable     = qs('#matrix-table');
+    const matchSection    = qs('#match-section');
+    const selectRound     = qs('#select-round');
+    const selectDuplaA    = qs('#select-dupla-a');
+    const selectDuplaB    = qs('#select-dupla-b');
+    const scoreAInput     = qs('#score-a');
+    const scoreBInput     = qs('#score-b');
+    const saveMatchBtn    = qs('#save-match-btn');
 
     let players  = JSON.parse(localStorage.getItem('players')  || '[]');
     let history  = JSON.parse(localStorage.getItem('history')  || '[]');
@@ -302,6 +345,54 @@
       matrixTable.innerHTML = html;
     }
 
+    /* =================== Rondas y duplas desde Supabase =================== */
+    let roundsData = [];
+    async function loadRounds() {
+      const { data, error } = await supa
+        .from('rondas')
+        .select('id, round_num')
+        .order('round_num', { ascending: true });
+      if (error) {
+        console.error(error);
+        return;
+      }
+      roundsData = data || [];
+      selectRound.innerHTML = '<option value="">Elige ronda</option>';
+      roundsData.forEach(r => {
+        const opt = document.createElement('option');
+        opt.value = r.id;
+        opt.textContent = `Ronda ${r.round_num}`;
+        selectRound.appendChild(opt);
+      });
+      matchSection.classList.toggle('hidden', roundsData.length === 0);
+    }
+
+    async function loadDuplas(rondaId) {
+      const { data, error } = await supa
+        .from('duplas')
+        .select('id, position, player_a(name), player_b(name)')
+        .eq('ronda_id', rondaId)
+        .order('position');
+      if (error) {
+        console.error(error);
+        return;
+      }
+      const list = data || [];
+      const buildOpts = sel => {
+        sel.innerHTML = '<option value="">Elige dupla</option>';
+        list.forEach(d => {
+          const opt = document.createElement('option');
+          const a = d.player_a?.name || 'JugadorA';
+          const b = d.player_b?.name || 'JugadorB';
+          opt.value = d.id;
+          opt.textContent = `${a} + ${b}`;
+          sel.appendChild(opt);
+        });
+      };
+      buildOpts(selectDuplaA);
+      buildOpts(selectDuplaB);
+    }
+
     /* =================== Eventos =================== */
     btnAdd.onclick = () => {
       const n = nameInput.value.trim();
@@ -383,11 +474,94 @@
       }
     };
 
+    selectRound.onchange = () => {
+      const id = selectRound.value;
+      if (id) loadDuplas(id);
+    };
+
+    saveMatchBtn.onclick = async () => {
+      const rondaId = selectRound.value;
+      const duplaA = selectDuplaA.value;
+      const duplaB = selectDuplaB.value;
+      const sA = parseInt(scoreAInput.value, 10);
+      const sB = parseInt(scoreBInput.value, 10);
+      if (!rondaId || !duplaA || !duplaB || duplaA === duplaB || isNaN(sA) || isNaN(sB)) {
+        alert('Completa todos los campos correctamente');
+        return;
+      }
+      const winner = sA >= sB ? duplaA : duplaB;
+      const { error } = await supa.from('partidas').insert({
+        ronda_id: rondaId,
+        dupla_a_id: duplaA,
+        dupla_b_id: duplaB,
+        score_a: sA,
+        score_b: sB,
+        winner_dupla: winner,
+      });
+      if (error) {
+        alert('Error al guardar');
+        console.error(error);
+      } else {
+        alert('Partido guardado');
+        scoreAInput.value = '';
+        scoreBInput.value = '';
+      }
+    };
+
+    // ===== Supabase Auth =====
+    const supabaseUrl = 'YOUR_SUPABASE_URL';
+    const supabaseKey = 'YOUR_SUPABASE_ANON_KEY';
+    const supa = supabase.createClient(supabaseUrl, supabaseKey);
+    const loginSection = qs('#login-section');
+    const appDiv = qs('#app');
+    const emailInputLogin = qs('#login-email');
+    const passInputLogin = qs('#login-password');
+    const loginBtn = qs('#login-btn');
+    const signupBtn = qs('#signup-btn');
+    const logoutBtn = qs('#logout-btn');
+
+    async function checkAuth() {
+      const { data } = await supa.auth.getSession();
+      if (data.session) {
+        loginSection.classList.add('hidden');
+        appDiv.classList.remove('hidden');
+        await loadRounds();
+      } else {
+        loginSection.classList.remove('hidden');
+        appDiv.classList.add('hidden');
+        matchSection.classList.add('hidden');
+      }
+    }
+
+    loginBtn.onclick = async () => {
+      const { error } = await supa.auth.signInWithPassword({
+        email: emailInputLogin.value,
+        password: passInputLogin.value,
+      });
+      if (error) alert(error.message);
+    };
+
+    signupBtn.onclick = async () => {
+      const { error } = await supa.auth.signUp({
+        email: emailInputLogin.value,
+        password: passInputLogin.value,
+      });
+      if (error) alert(error.message);
+    };
+
+    logoutBtn.onclick = async () => {
+      await supa.auth.signOut();
+    };
+
+    supa.auth.onAuthStateChange(() => checkAuth());
+    checkAuth();
+
     /* =================== Init =================== */
     buildPresetButtons();
     renderPlayers();
     renderHistory();
     updateMatrixTable();
   </script>
+  </div> <!-- end app -->
 </body>
 </html>
