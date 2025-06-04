@@ -31,9 +31,9 @@ async function loadBirrias() {
 async function loadPartidas() {
   let query = supa
     .from('partidas')
-    .select('id, score_a, score_b, winner_dupla, ronda(birria_id), dupla_a:dupla_a_id(player_a(name), player_b(name)), dupla_b:dupla_b_id(player_a(name), player_b(name))');
+    .select('id, score_a, score_b, winner_dupla, rondas(birria_id), dupla_a:dupla_a_id(player_a(name), player_b(name)), dupla_b:dupla_b_id(player_a(name), player_b(name))');
   const birriaId = birriaSelect.value;
-  if (birriaId) query = query.eq('ronda.birria_id', birriaId);
+  if (birriaId) query = query.eq('rondas.birria_id', birriaId);
   const { data, error } = await query;
   if (error) { console.error(error); return; }
   partidas = data || [];
