@@ -6,28 +6,35 @@
   <title>Estadísticas – Bádminton</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    table tr:nth-child(even) { background-color: #f9fafb; }
+  </style>
 </head>
 <body class="bg-gradient-to-br from-teal-100 via-sky-100 to-fuchsia-100 min-h-screen flex flex-col items-center p-4 gap-6">
   <header class="text-center">
     <h1 class="text-3xl font-extrabold tracking-tight text-gray-800 drop-shadow-sm">Estadísticas de Partidos</h1>
   </header>
 
-  <section class="card bg-white rounded-2xl p-6 w-full max-w-md">
+  <section class="card bg-white rounded-2xl p-6 w-full max-w-md shadow-lg">
     <h2 class="text-xl font-semibold mb-4">Filtrar por Birria</h2>
     <select id="birria-select" class="border rounded-xl p-2 w-full mb-2"></select>
   </section>
 
-  <section class="card bg-white rounded-2xl p-6 w-full max-w-md" id="general-section">
+  <section class="card bg-white rounded-2xl p-6 w-full max-w-md shadow-lg" id="general-section">
     <h2 class="text-xl font-semibold mb-4">Estadísticas Generales</h2>
-    <table id="stats-table" class="w-full text-sm text-center border-collapse"></table>
+    <div class="overflow-x-auto">
+      <table id="stats-table" class="min-w-full text-sm text-center border-collapse rounded-lg overflow-hidden shadow-md"></table>
+    </div>
   </section>
 
-  <section class="card bg-white rounded-2xl p-6 w-full max-w-md" id="player-section">
+  <section class="card bg-white rounded-2xl p-6 w-full max-w-md shadow-lg" id="player-section">
     <h2 class="text-xl font-semibold mb-4">Estadísticas de Jugador</h2>
     <select id="player-select" class="border rounded-xl p-2 w-full mb-3"></select>
     <div id="player-info" class="text-sm"></div>
     <h3 class="text-lg font-semibold mt-4">Duplas ganadoras</h3>
-    <table id="duo-table" class="w-full text-sm text-center border-collapse"></table>
+    <div class="overflow-x-auto">
+      <table id="duo-table" class="min-w-full text-sm text-center border-collapse rounded-lg overflow-hidden shadow-md"></table>
+    </div>
   </section>
 
   <script src="stats.js"></script>

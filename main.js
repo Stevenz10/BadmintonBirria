@@ -696,22 +696,28 @@
         alert('Completa todos los campos correctamente');
         return;
       }
-      const winner = sA >= sB ? duplaA : duplaB;
+      const winner = sA >= sB ? parseInt(duplaA, 10) : parseInt(duplaB, 10);
       let error;
       if (selectMatch.value) {
         ({ error } = await supa
           .from('partidas')
-          .update({ dupla_a_id: duplaA, dupla_b_id: duplaB, score_a: sA, score_b: sB, winner_dupla: winner })
+          .update({
+            dupla_a_id: parseInt(duplaA, 10),
+            dupla_b_id: parseInt(duplaB, 10),
+            score_a: sA,
+            score_b: sB,
+            winner_dupla: winner,
+          })
           .eq('id', selectMatch.value));
       } else {
-        ({ error } = await supa.from('partidas').insert({
-          ronda_id: rondaId,
-          dupla_a_id: duplaA,
-          dupla_b_id: duplaB,
-          score_a: sA,
-          score_b: sB,
-          winner_dupla: winner,
-        }));
+          ({ error } = await supa.from('partidas').insert({
+            ronda_id: rondaId,
+            dupla_a_id: parseInt(duplaA, 10),
+            dupla_b_id: parseInt(duplaB, 10),
+            score_a: sA,
+            score_b: sB,
+            winner_dupla: winner,
+          }));
       }
       if (error) {
         alert('Error al guardar');
