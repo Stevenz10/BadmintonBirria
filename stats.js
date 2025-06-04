@@ -64,7 +64,7 @@ async function loadBirrias() {
     .order('play_date', { ascending: false });
   if (error) { console.error(error); return; }
   birrias = data || [];
-  birriaSelect.innerHTML = '<option value="">Todas las birrias</option>';
+  birriaSelect.innerHTML = '<option value="">Datos generales</option>';
   birrias.forEach(b => {
     const opt = document.createElement('option');
     opt.value = b.id;
@@ -95,6 +95,8 @@ async function loadPartidas() {
   eloRatings = computeElo(partidas);
   renderGeneral();
   buildPlayerSelect();
+  playerSelect.value = '';
+  renderPlayer('');
 }
 
 function buildPlayerSelect() {
@@ -186,13 +188,24 @@ function renderPlayer(name) {
   const elo = eloRatings[name] ? eloRatings[name].toFixed(1) : ELO_INITIAL.toFixed(1);
   const group = getGroup(eloRatings[name] ?? ELO_INITIAL);
   const diff = info.pf - info.pc;
-  playerInfo.textContent = `${name}: Elo ${elo} (${group}), WinRate ${winRate}, Partidas ${info.played}, Puntos Totales ${diff}`;
+  playerInfo.innerHTML =
+    '<tr>'+
+    '<th class="border p-2 bg-gray-100">Jugador</th>'+
+    '<th class="border p-2 bg-gray-100">Elo</th>'+
+    '<th class="border p-2 bg-gray-100">Grupo</th>'+
+    '<th class="border p-2 bg-gray-100">WinRate</th>'+
+    '<th class="border p-2 bg-gray-100">Partidas</th>'+
+    '<th class="border p-2 bg-gray-100">Puntos Totales</th>'+
+    '</tr>'+
+    `<tr><td class='border p-2'>${name}</td><td class='border p-2'>${elo}</td><td class='border p-2'>${group}</td><td class='border p-2'>${winRate}</td><td class='border p-2'>${info.played}</td><td class='border p-2'>${diff}</td></tr>`;
   duoTable.innerHTML = '<tr><th class="border p-2 bg-gray-100">Compañero</th><th class="border p-2 bg-gray-100">WinRate</th><th class="border p-2 bg-gray-100">Partidas</th></tr>';
-  Object.keys(duoStats).sort().forEach(m => {
-    const s = duoStats[m];
-    const wr = s.played ? ((s.wins/s.played)*100).toFixed(1)+'%' : '-';
-    duoTable.innerHTML += `<tr><td class='border p-2'>${m}</td><td class='border p-2'>${wr}</td><td class='border p-2'>${s.played}</td></tr>`;
-  });
+  Object.keys(duoStats)
+    .sort((a, b) => duoStats[b].played - duoStats[a].played)
+    .forEach(m => {
+      const s = duoStats[m];
+      const wr = s.played ? ((s.wins/s.played)*100).toFixed(1)+'%' : '-';
+      duoTable.innerHTML += `<tr><td class='border p-2'>${m}</td><td class='border p-2'>${wr}</td><td class='border p-2'>${s.played}</td></tr>`;
+    });
 }
 
 birriaSelect.onchange = loadPartidas;
