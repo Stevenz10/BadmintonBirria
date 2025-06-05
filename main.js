@@ -16,9 +16,6 @@
     const roundTitle      = qs('#round-title');
     const roundMenu       = qs('#round-menu');
     const pairTable       = qs('#pairings-table');
-    const soloSection     = qs('#solo-section');
-    const soloPartnerSel  = qs('#solo-partner');
-    const assignSoloBtn   = qs('#assign-solo');
     const nextBtn         = qs('#next');
     const deleteBtn       = qs('#delete-round');
     const resetBtn        = qs('#reset');
@@ -53,7 +50,6 @@
     let currentRoundIdx = history.length ? history.length - 1 : null;
     let currentBirriaId = localStorage.getItem('currentBirriaId') || null;
     let lastRondaId = null;
-    let currentSolo = null;
     const playersMap = {};
 
     const save = () => {
@@ -288,41 +284,63 @@
     function generateRound(idx) {
       const active = players.filter(p => !absents.includes(p));
       if (active.length < 3) return { pairs: [], solo: null };
-      const oddOriginal = active.length % 2 === 1;
-      let arr = [...active];
-      if (oddOriginal) arr.push('DESCANSO');
-      const n = arr.length;
 
-      // Outer shift solo cuando el nº es par
-      const outerShift = oddOriginal ? 0 : idx % n;
-      arr = arr.slice(outerShift).concat(arr.slice(0, outerShift));
+      // Historial de parejas y solos
+      const pairCounts = {};
+      const soloCounts = {};
+      history.forEach(h => {
+        h.pairs.forEach(([a, b]) => {
+          const k = pairKey(a, b);
+          pairCounts[k] = (pairCounts[k] || 0) + 1;
+        });
+        if (h.solo) soloCounts[h.solo] = (soloCounts[h.solo] || 0) + 1;
+      });
 
-      const cycle = n - 1;
-      const r = idx % cycle;
-      const rot = [arr[0], ...arr.slice(1).slice(r), ...arr.slice(1, 1 + r)];
-
-      const pairs = [];
-      let solo = null;
-      for (let i = 0; i < n / 2; i++) {
-        const a = rot[i], b = rot[n - 1 - i];
-        if (a === 'DESCANSO' || b === 'DESCANSO') {
-          solo = a === 'DESCANSO' ? b : a;
-        } else {
-          pairs.push([a, b]);
-        }
-      }
-
-      // Fairness: desviación respecto a la media ideal
-      const npos = pairs.length + 1;
-      const mean = (npos + 1) / 2;
       const avgOf = name => {
         const st = stats[name] || { sum: 0, count: 0 };
+        const mean = (active.length + 1) / 2;
         return st.count ? st.sum / st.count : mean;
       };
+
+      let arr = [...active];
+      let solo = null;
+      if (arr.length % 2 === 1) {
+        arr.sort((a, b) => {
+          const sa = soloCounts[a] || 0;
+          const sb = soloCounts[b] || 0;
+          if (sa !== sb) return sa - sb;
+          return avgOf(b) - avgOf(a);
+        });
+        solo = arr.shift();
+      }
+
+      // Barajar jugadores para romper simetrías
+      for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+      }
+
+      const pairs = [];
+      while (arr.length >= 2) {
+        const a = arr.shift();
+        arr.sort((x, y) => {
+          const c1 = pairCounts[pairKey(a, x)] || 0;
+          const c2 = pairCounts[pairKey(a, y)] || 0;
+          if (c1 !== c2) return c1 - c2;
+          return Math.abs(avgOf(a) - avgOf(x)) - Math.abs(avgOf(a) - avgOf(y));
+        });
+        const b = arr.shift();
+        pairs.push([a, b]);
+        const k = pairKey(a, b);
+        pairCounts[k] = (pairCounts[k] || 0) + 1;
+      }
+
+      const npos = pairs.length + 1;
+      const mean = (npos + 1) / 2;
       pairs.sort((u, v) => {
         const du = ((avgOf(u[0]) + avgOf(u[1])) / 2) - mean;
         const dv = ((avgOf(v[0]) + avgOf(v[1])) / 2) - mean;
-        return dv - du; // peor primero
+        return dv - du;
       });
 
       return { pairs, solo };
@@ -336,16 +354,6 @@
       });
       if (solo) {
         pairTable.innerHTML += `<tr><td class='border p-2 font-medium bg-yellow-100'>Solo</td><td class='border p-2 text-red-600'>${solo}</td></tr>`;
-        soloPartnerSel.innerHTML = '<option value="">Elige compañero</option>';
-        players.filter(p => p !== solo && !absents.includes(p)).forEach(n => {
-          const o = document.createElement('option');
-          o.value = n;
-          o.textContent = n;
-          soloPartnerSel.appendChild(o);
-        });
-        soloSection.classList.remove('hidden');
-      } else {
-        soloSection.classList.add('hidden');
       }
     }
     function renderHistory() {
@@ -647,7 +655,6 @@
         updateMatrixTable();
         round++;
         currentRoundIdx = history.length - 1;
-        currentSolo = data.solo;
         if (currentBirriaId) {
           lastRondaId = await saveRoundToSupabase(data.pairs, round);
           await refreshStatsFromDB();
@@ -655,25 +662,6 @@
         }
       };
 
-      assignSoloBtn.onclick = async () => {
-        const partner = soloPartnerSel.value;
-        if (!currentSolo || !partner) return;
-        const last = history[history.length - 1];
-        last.pairs.push([currentSolo, partner]);
-        last.solo = null;
-        record([[currentSolo, partner]], null);
-        save();
-        renderHistory();
-        showRound(last);
-        if (lastRondaId) {
-          const aId = await getPlayerId(currentSolo);
-          const bId = await getPlayerId(partner);
-          await supa.from('duplas').insert({ ronda_id: lastRondaId, player_a: aId, player_b: bId, position: last.pairs.length });
-          await refreshStatsFromDB();
-          renderPlayers();
-        }
-        currentSolo = null;
-      };
 
     async function deleteRoundFromDB(num) {
       const rec = roundsData.find(r => r.round_num === num);
@@ -692,7 +680,6 @@
       history.splice(idx, 1);
       history.forEach((h, i) => { h.round = i + 1; });
       round = history.length;
-      currentSolo = null;
       recomputeStats();
       save();
       if (currentBirriaId) await deleteRoundFromDB(num);
@@ -723,7 +710,6 @@
       absents = [];
       round = 0;
       currentRoundIdx = null;
-      currentSolo = null;
       save();
       renderPlayers();
       renderHistory();
