@@ -4,15 +4,23 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Generador de Duplas – Bádminton</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = { darkMode: 'class' };
+  </script>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
     /* Tailwind custom additions */
-    .card:hover { @apply shadow-xl -translate-y-0.5 transition; }
+    .card { @apply shadow-sm transition-transform; }
+    .card:hover { @apply shadow-xl -translate-y-0.5; }
+    body { font-family: 'Inter', sans-serif; }
   </style>
 </head>
-<body class="bg-gradient-to-br from-teal-100 via-sky-100 to-fuchsia-100 min-h-screen flex flex-col items-center p-4 gap-6">
-  <section id="login-section" class="card bg-white rounded-2xl p-6 w-full max-w-xs">
+<body class="bg-gradient-to-br from-teal-100 via-sky-100 to-fuchsia-100 dark:from-slate-900 dark:via-slate-800 dark:to-slate-700 min-h-screen flex flex-col items-center p-4 gap-6 dark:text-gray-100">
+  <section id="login-section" class="card bg-white dark:bg-gray-800 rounded-2xl p-6 w-full max-w-xs">
     <h2 class="text-xl font-semibold mb-4 text-center">Login</h2>
     <div class="flex flex-col gap-3">
       <input id="login-email" type="email" placeholder="Email" class="border rounded-xl p-3" />
@@ -22,29 +30,32 @@
   </section>
 
   <div id="app" class="hidden w-full flex flex-col items-center gap-6">
-  <header class="text-center">
-    <h1 class="text-3xl font-extrabold tracking-tight text-gray-800 drop-shadow-sm">Generador de Duplas – Bádminton</h1>
-    <p class="text-sm text-gray-600 mt-1">Gestiona rondas equilibradas y visualiza combinaciones pendientes.</p>
-    <a href="stats.html" class="text-sm text-blue-600 underline">Ver estadísticas</a>
-    <button id="logout-btn" class="mt-2 text-sm text-red-600 underline">Cerrar sesión</button>
+  <header class="sticky top-0 z-10 w-full bg-white/80 dark:bg-gray-900/80 backdrop-blur rounded-b-xl shadow flex flex-col items-center gap-2 p-4">
+    <h1 class="text-3xl font-extrabold tracking-tight text-gray-800 dark:text-gray-100 drop-shadow-sm">Generador de Duplas – Bádminton</h1>
+    <p class="text-sm text-gray-600 dark:text-gray-300">Gestiona rondas equilibradas y visualiza combinaciones pendientes.</p>
+    <div class="flex gap-3">
+      <a href="stats.html" class="text-sm text-blue-600 underline">Ver estadísticas</a>
+      <button id="logout-btn" class="text-sm text-red-600 underline">Cerrar sesión</button>
+      <button id="theme-toggle" class="text-sm text-gray-600 dark:text-gray-300 underline">Modo oscuro</button>
+    </div>
   </header>
 
   <!-- Birria -->
-  <section id="birria-section" class="card bg-white rounded-2xl p-6 w-full max-w-md hidden">
+  <section id="birria-section" class="card bg-white dark:bg-gray-800 rounded-2xl p-6 w-full max-w-md hidden">
     <h2 class="text-xl font-semibold mb-4">Birria actual</h2>
     <div class="flex flex-col gap-3">
       <select id="birria-select" class="border rounded-xl p-2"></select>
       <button id="new-birria" class="bg-green-600 hover:bg-green-700 text-white rounded-xl p-3 text-sm font-medium">Iniciar nueva birria</button>
       <button id="delete-birria" class="bg-red-600 hover:bg-red-700 text-white rounded-xl p-3 text-sm font-medium hidden">Borrar birria</button>
-      <p id="birria-info" class="text-sm text-gray-600"></p>
+    <p id="birria-info" class="text-sm text-gray-600 dark:text-gray-300"></p>
     </div>
   </section>
 
   <!-- 1. Añadir jugador / Presets -->
-  <section class="card bg-white rounded-2xl p-6 w-full max-w-md">
+  <section class="card bg-white dark:bg-gray-800 rounded-2xl p-6 w-full max-w-md">
     <h2 class="text-xl font-semibold mb-4 flex items-center gap-2"><span class="i-lucide-user-plus"></span>Añadir jugador</h2>
     <div class="flex flex-col gap-3">
-      <label class="text-sm text-gray-600" for="player-name">Nombre</label>
+      <label class="text-sm text-gray-600 dark:text-gray-300" for="player-name">Nombre</label>
       <input id="player-name" list="players-list" placeholder="Nombre del jugador" class="border rounded-xl p-3 focus:ring focus:ring-blue-300" />
       <datalist id="players-list"></datalist>
       <div class="flex gap-2">
@@ -59,15 +70,15 @@
   </section>
 
   <!-- 2. Lista de jugadores -->
-  <section id="player-list" class="hidden card bg-white rounded-2xl p-6 w-full max-w-md">
+  <section id="player-list" class="hidden card bg-white dark:bg-gray-800 rounded-2xl p-6 w-full max-w-md">
     <h2 class="text-xl font-semibold mb-4">Jugadores</h2>
     <ul id="list" class="space-y-2 text-base"></ul>
   </section>
 
   <!-- 3. Ronda actual y controles -->
-  <section id="round-controls" class="hidden card bg-white rounded-2xl p-6 w-full max-w-md">
+  <section id="round-controls" class="hidden card bg-white dark:bg-gray-800 rounded-2xl p-6 w-full max-w-md">
     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
-      <h2 id="round-title" class="text-lg font-semibold text-gray-600 italic">Sin ronda generada</h2>
+      <h2 id="round-title" class="text-lg font-semibold text-gray-600 dark:text-gray-300 italic">Sin ronda generada</h2>
       <select id="round-menu" class="border rounded-xl p-2 text-sm hidden"></select>
       <div class="flex flex-wrap gap-2 justify-center">
         <button id="next" class="bg-green-600 hover:bg-green-700 text-white rounded-xl px-4 py-2 text-sm font-medium">Generar ronda</button>
@@ -82,44 +93,44 @@
   </section>
 
   <!-- 4. Historial -->
-  <section id="history-section" class="hidden card bg-white rounded-2xl p-6 w-full max-w-md">
+  <section id="history-section" class="hidden card bg-white dark:bg-gray-800 rounded-2xl p-6 w-full max-w-md">
     <h2 class="text-xl font-semibold mb-4">Rondas anteriores</h2>
     <div id="history-list" class="space-y-4 max-h-64 overflow-y-auto pr-1"></div>
   </section>
 
   <!-- 5. Matriz de combinaciones -->
-  <section id="matrix-section" class="hidden card bg-white rounded-2xl p-6 w-full w-max overflow-x-auto">
+  <section id="matrix-section" class="hidden card bg-white dark:bg-gray-800 rounded-2xl p-6 w-full w-max overflow-x-auto">
     <h2 class="text-xl font-semibold mb-4">Matriz de combinaciones pendientes</h2>
     <p class="text-xs text-gray-500 mb-3">✔ = ya jugaron juntos · ✖ = pendiente</p>
     <table id="matrix-table" class="text-xs border-collapse"></table>
   </section>
 
   <!-- 6. Registrar partida -->
-  <section id="match-section" class="hidden card bg-white rounded-2xl p-6 w-full max-w-md">
+  <section id="match-section" class="hidden card bg-white dark:bg-gray-800 rounded-2xl p-6 w-full max-w-md">
     <h2 class="text-xl font-semibold mb-4">Registrar partida</h2>
     <div class="flex flex-col gap-3">
-      <label for="select-match" class="text-sm text-gray-600">Partida guardada</label>
+      <label for="select-match" class="text-sm text-gray-600 dark:text-gray-300">Partida guardada</label>
       <select id="select-match" class="border rounded-xl p-2"></select>
 
-      <label for="select-round" class="text-sm text-gray-600">Ronda</label>
+      <label for="select-round" class="text-sm text-gray-600 dark:text-gray-300">Ronda</label>
       <select id="select-round" class="border rounded-xl p-2"></select>
 
-      <label for="player-a1" class="text-sm text-gray-600">Jugador A1</label>
+      <label for="player-a1" class="text-sm text-gray-600 dark:text-gray-300">Jugador A1</label>
       <select id="player-a1" class="border rounded-xl p-2"></select>
 
-      <label for="player-a2" class="text-sm text-gray-600">Jugador A2</label>
+      <label for="player-a2" class="text-sm text-gray-600 dark:text-gray-300">Jugador A2</label>
       <select id="player-a2" class="border rounded-xl p-2"></select>
 
-      <label for="player-b1" class="text-sm text-gray-600">Jugador B1</label>
+      <label for="player-b1" class="text-sm text-gray-600 dark:text-gray-300">Jugador B1</label>
       <select id="player-b1" class="border rounded-xl p-2"></select>
 
-      <label for="player-b2" class="text-sm text-gray-600">Jugador B2</label>
+      <label for="player-b2" class="text-sm text-gray-600 dark:text-gray-300">Jugador B2</label>
       <select id="player-b2" class="border rounded-xl p-2"></select>
 
-      <label for="score-a" class="text-sm text-gray-600">Marcador A</label>
+      <label for="score-a" class="text-sm text-gray-600 dark:text-gray-300">Marcador A</label>
       <input id="score-a" type="number" min="0" class="border rounded-xl p-2" />
 
-      <label for="score-b" class="text-sm text-gray-600">Marcador B</label>
+      <label for="score-b" class="text-sm text-gray-600 dark:text-gray-300">Marcador B</label>
       <input id="score-b" type="number" min="0" class="border rounded-xl p-2" />
 
       <div class="flex gap-2">
@@ -130,6 +141,21 @@
   </section>
 
   <script src="main.js"></script>
+  <script>
+    const themeToggle = document.getElementById('theme-toggle');
+    document.documentElement.classList.add('transition-colors','duration-300');
+    function applyTheme(dark) {
+      document.documentElement.classList.toggle('dark', dark);
+      localStorage.setItem('theme', dark ? 'dark' : 'light');
+      themeToggle.textContent = dark ? 'Modo claro' : 'Modo oscuro';
+    }
+    themeToggle.addEventListener('click', () => {
+      applyTheme(!document.documentElement.classList.contains('dark'));
+    });
+    const stored = localStorage.getItem('theme');
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    applyTheme(stored ? stored === 'dark' : prefersDark);
+  </script>
   </div> <!-- end app -->
 </body>
 </html>
