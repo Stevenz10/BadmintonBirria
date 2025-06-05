@@ -19,17 +19,15 @@ let players = new Set();
 let birrias = [];
 let eloRatings = {};
 
-function expectedScore(eloSelf, eloOpp) {
-  return 1 / (1 + 10 ** ((eloOpp - eloSelf) / 400));
-}
-
 function getGroup(elo) {
   if (elo >= UMBRAL_ELO_A) return 'A';
   if (elo >= UMBRAL_ELO_B) return 'B';
   return 'C';
 }
 
-function computeElo(matches) {
+async function computeTrueSkill(matches) {
+  const { TrueSkill, rate } = await import('https://cdn.jsdelivr.net/npm/ts-trueskill@5/dist/src/index.js');
+  const env = new TrueSkill(ELO_INITIAL, ELO_INITIAL / 3);
   const ratings = {};
   const sorted = [...matches].sort((a, b) => a.id - b.id);
   sorted.forEach(m => {
@@ -39,25 +37,25 @@ function computeElo(matches) {
     const b2 = m.dupla_b?.player_b?.name;
     if (!a1 || !a2 || !b1 || !b2) return;
 
-    [a1, a2, b1, b2].forEach(p => { if (!ratings[p]) ratings[p] = ELO_INITIAL; });
+    [a1, a2, b1, b2].forEach(p => {
+      if (!ratings[p]) ratings[p] = env.createRating();
+    });
 
-    const eloA = (ratings[a1] + ratings[a2]) / 2;
-    const eloB = (ratings[b1] + ratings[b2]) / 2;
-    const expectedA = expectedScore(eloA, eloB);
-    const winnerId = m.winner_dupla;
-    const winA = winnerId === m.dupla_a?.id;
-    const scoreA = winA ? 1 : 0;
-    const diff = Math.abs((m.score_a || 0) - (m.score_b || 0));
-    const margin = Math.log(diff + 1);
-    const spread = 2.2 / ((((winA ? eloA - eloB : eloB - eloA) ) / 1000) + 2.2);
-    const delta = K_FACTOR * margin * spread * (scoreA - expectedA);
-
-    ratings[a1] += delta;
-    ratings[a2] += delta;
-    ratings[b1] -= delta;
-    ratings[b2] -= delta;
+    const teams = [
+      [ratings[a1], ratings[a2]],
+      [ratings[b1], ratings[b2]]
+    ];
+    const winA = m.winner_dupla === m.dupla_a?.id;
+    const ranks = winA ? [0, 1] : [1, 0];
+    const newRatings = rate(teams, ranks, undefined, undefined, env);
+    [ratings[a1], ratings[a2]] = newRatings[0];
+    [ratings[b1], ratings[b2]] = newRatings[1];
   });
-  return ratings;
+  const exposed = {};
+  Object.keys(ratings).forEach(p => {
+    exposed[p] = env.expose(ratings[p]) + ELO_INITIAL;
+  });
+  return exposed;
 }
 
 async function loadBirrias() {
@@ -96,7 +94,7 @@ async function loadPartidas() {
     const b2 = p.dupla_b?.player_b?.name;
     [a1, a2, b1, b2].forEach(n => { if (n) players.add(n); });
   });
-  eloRatings = computeElo(partidas);
+  eloRatings = await computeTrueSkill(partidas);
   renderGeneral();
   buildPlayerSelect();
   playerSelect.value = '';
