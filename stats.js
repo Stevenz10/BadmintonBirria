@@ -12,6 +12,8 @@ const statsTable = document.getElementById('stats-table');
 const playerSelect = document.getElementById('player-select');
 const playerInfo = document.getElementById('player-info');
 const duoTable = document.getElementById('duo-table');
+const h2hTable = document.getElementById('h2h-table');
+const tsCanvas = document.getElementById('ts-chart');
 const minGamesSelect = document.getElementById('min-games');
 
 let muElo = ELO_INITIAL;
@@ -21,6 +23,8 @@ let partidas = [];
 let players = new Set();
 let birrias = [];
 let eloRatings = {};
+let ratingHistory = {};
+let tsChart = null;
 
 function getGroup(elo) {
   if (elo >= muElo + 0.5 * sigmaElo) return 'A';
@@ -33,8 +37,9 @@ async function computeTrueSkill(matches) {
   const { TrueSkill, rate } = await import('https://cdn.jsdelivr.net/npm/ts-trueskill@5/dist/src/index.js');
   const env = new TrueSkill(ELO_INITIAL, ELO_INITIAL / 3);
   const ratings = {};
+  ratingHistory = {};
   const sorted = [...matches].sort((a, b) => a.id - b.id);
-  sorted.forEach(m => {
+  sorted.forEach((m, idx) => {
     const a1 = m.dupla_a?.player_a?.name;
     const a2 = m.dupla_a?.player_b?.name;
     const b1 = m.dupla_b?.player_a?.name;
@@ -42,7 +47,10 @@ async function computeTrueSkill(matches) {
     if (!a1 || !a2 || !b1 || !b2) return;
 
     [a1, a2, b1, b2].forEach(p => {
-      if (!ratings[p]) ratings[p] = env.createRating();
+      if (!ratings[p]) {
+        ratings[p] = env.createRating();
+        ratingHistory[p] = [];
+      }
     });
 
     const teams = [
@@ -54,6 +62,10 @@ async function computeTrueSkill(matches) {
     const newRatings = rate(teams, ranks, undefined, undefined, env);
     [ratings[a1], ratings[a2]] = newRatings[0];
     [ratings[b1], ratings[b2]] = newRatings[1];
+
+    [a1, a2, b1, b2].forEach(p => {
+      ratingHistory[p].push({ x: idx + 1, y: env.expose(ratings[p]) + ELO_INITIAL });
+    });
   });
   const exposed = {};
   Object.keys(ratings).forEach(p => {
@@ -163,10 +175,13 @@ function renderPlayer(name) {
   if (!name) {
     playerInfo.textContent = '';
     duoTable.innerHTML = '';
+    h2hTable.innerHTML = '';
+    if (tsChart) { tsChart.destroy(); tsChart = null; }
     return;
   }
   const info = { wins:0, played:0, pf:0, pc:0 };
   const duoStats = {};
+  const h2hStats = {};
   partidas.forEach(p => {
     const duoA = [p.dupla_a?.player_a?.name, p.dupla_a?.player_b?.name];
     const duoB = [p.dupla_b?.player_a?.name, p.dupla_b?.player_b?.name];
@@ -184,6 +199,11 @@ function renderPlayer(name) {
         duoStats[mate].played += 1;
         if (winA) duoStats[mate].wins += 1;
       }
+      duoB.forEach(op => {
+        if (!op) return;
+        h2hStats[op] = h2hStats[op] || { wins:0, losses:0 };
+        if (winA) h2hStats[op].wins += 1; else h2hStats[op].losses +=1;
+      });
     } else if (duoB.includes(name)) {
       info.played += 1;
       info.pf += p.score_b || 0;
@@ -195,6 +215,11 @@ function renderPlayer(name) {
         duoStats[mate].played += 1;
         if (winB) duoStats[mate].wins += 1;
       }
+      duoA.forEach(op => {
+        if (!op) return;
+        h2hStats[op] = h2hStats[op] || { wins:0, losses:0 };
+        if (winB) h2hStats[op].wins += 1; else h2hStats[op].losses += 1;
+      });
     }
   });
   const winRate = info.played ? ((info.wins / info.played)*100).toFixed(1)+'%' : '-';
@@ -219,6 +244,36 @@ function renderPlayer(name) {
       const wr = s.played ? ((s.wins/s.played)*100).toFixed(1)+'%' : '-';
       duoTable.innerHTML += `<tr><td class='border p-2'>${m}</td><td class='border p-2'>${wr}</td><td class='border p-2'>${s.played}</td></tr>`;
     });
+
+  h2hTable.innerHTML = '<tr><th class="border p-2 bg-gray-100">Rival</th><th class="border p-2 bg-gray-100">Victorias</th><th class="border p-2 bg-gray-100">Derrotas</th></tr>';
+  Object.keys(h2hStats)
+    .sort((a, b) => (h2hStats[b].wins + h2hStats[b].losses) - (h2hStats[a].wins + h2hStats[a].losses))
+    .forEach(r => {
+      const s = h2hStats[r];
+      h2hTable.innerHTML += `<tr><td class='border p-2'>${r}</td><td class='border p-2'>${s.wins}</td><td class='border p-2'>${s.losses}</td></tr>`;
+    });
+
+  if (tsChart) { tsChart.destroy(); }
+  if (ratingHistory[name]) {
+    tsChart = new Chart(tsCanvas.getContext('2d'), {
+      type: 'line',
+      data: {
+        datasets: [{
+          label: name,
+          data: ratingHistory[name],
+          borderColor: 'rgb(75,192,192)',
+          tension: 0.1,
+          fill: false
+        }]
+      },
+      options: {
+        scales: {
+          x: { title: { display: true, text: 'Partida' } },
+          y: { title: { display: true, text: 'TrueSkill' } }
+        }
+      }
+    });
+  }
 }
 
 birriaSelect.onchange = loadPartidas;
