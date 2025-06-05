@@ -12,6 +12,10 @@ const statsTable = document.getElementById('stats-table');
 const playerSelect = document.getElementById('player-select');
 const playerInfo = document.getElementById('player-info');
 const duoTable = document.getElementById('duo-table');
+const minGamesSelect = document.getElementById('min-games');
+
+let muElo = ELO_INITIAL;
+let sigmaElo = 0;
 
 let partidas = [];
 let players = new Set();
@@ -19,9 +23,10 @@ let birrias = [];
 let eloRatings = {};
 
 function getGroup(elo) {
-  if (elo >= UMBRAL_ELO_A) return 'A';
-  if (elo >= UMBRAL_ELO_B) return 'B';
-  return 'C';
+  if (elo >= muElo + 0.5 * sigmaElo) return 'A';
+  if (elo >= muElo - 0.5 * sigmaElo) return 'B';
+  if (elo >= muElo - 1.5 * sigmaElo) return 'C';
+  return 'D';
 }
 
 async function computeTrueSkill(matches) {
@@ -54,6 +59,11 @@ async function computeTrueSkill(matches) {
   Object.keys(ratings).forEach(p => {
     exposed[p] = env.expose(ratings[p]) + ELO_INITIAL;
   });
+  const values = Object.values(exposed);
+  if (values.length) {
+    muElo = values.reduce((s, e) => s + e, 0) / values.length;
+    sigmaElo = Math.sqrt(values.reduce((s, e) => s + (e - muElo) ** 2, 0) / values.length);
+  }
   return exposed;
 }
 
@@ -135,7 +145,9 @@ function renderGeneral() {
     });
   });
   statsTable.innerHTML = '<tr><th class="border p-2 bg-gray-100">Jugador</th><th class="border p-2 bg-gray-100">Elo</th><th class="border p-2 bg-gray-100">Grupo</th><th class="border p-2 bg-gray-100">WinRate</th><th class="border p-2 bg-gray-100">Partidas</th><th class="border p-2 bg-gray-100">Puntos Totales</th></tr>';
+  const minGames = parseInt(minGamesSelect.value, 10) || 0;
   Object.keys(stats)
+    .filter(n => stats[n].played >= minGames)
     .sort((a, b) => (eloRatings[b] ?? ELO_INITIAL) - (eloRatings[a] ?? ELO_INITIAL))
     .forEach(n => {
       const s = stats[n];
@@ -211,5 +223,6 @@ function renderPlayer(name) {
 
 birriaSelect.onchange = loadPartidas;
 playerSelect.onchange = () => renderPlayer(playerSelect.value);
+minGamesSelect.onchange = renderGeneral;
 
 loadBirrias().then(loadPartidas);
