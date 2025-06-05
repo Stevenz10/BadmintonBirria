@@ -47,7 +47,10 @@ function computeElo(matches) {
     const winnerId = m.winner_dupla;
     const winA = winnerId === m.dupla_a?.id;
     const scoreA = winA ? 1 : 0;
-    const delta = K_FACTOR * (scoreA - expectedA);
+    const diff = Math.abs((m.score_a || 0) - (m.score_b || 0));
+    const margin = Math.log(diff + 1);
+    const spread = 2.2 / ((((winA ? eloA - eloB : eloB - eloA) ) / 1000) + 2.2);
+    const delta = K_FACTOR * margin * spread * (scoreA - expectedA);
 
     ratings[a1] += delta;
     ratings[a2] += delta;
