@@ -106,21 +106,32 @@
     }
 
     async function refreshStatsFromDB() {
-      const { data, error } = await supa
+      let query = supa
         .from('duplas')
-        .select('position, player_a(name), player_b(name)');
+        .select('position, ronda_id, rondas!inner(birria_id), player_a(name), player_b(name)');
+      if (currentBirriaId) query = query.eq('rondas.birria_id', currentBirriaId);
+      const { data, error } = await query;
       if (error) { console.error(error); return; }
       stats = {};
+      const pSet = new Set();
+      const seen = new Set();
       (data || []).forEach(d => {
+        const a = d.player_a?.name;
+        const b = d.player_b?.name;
+        if (!a || !b) return;
+        const key = `${d.ronda_id}|${[a, b].sort().join('|')}`;
+        if (seen.has(key)) return; // evitar duplicados por partidas
+        seen.add(key);
         const pos = d.position || 0;
-        const names = [d.player_a?.name, d.player_b?.name];
-        names.forEach(n => {
-          if (!n) return;
+        [a, b].forEach(n => {
           stats[n] = stats[n] || { sum: 0, count: 0 };
           stats[n].sum += pos;
           stats[n].count += 1;
+          pSet.add(n);
         });
       });
+      players = Array.from(pSet).sort();
+      save();
     }
 
     async function loadBirrias() {
