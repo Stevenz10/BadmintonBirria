@@ -6,6 +6,15 @@
   <title>Estadísticas – Bádminton</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script type="importmap">
+    {
+      "imports": {
+        "mathjs": "https://cdn.jsdelivr.net/npm/mathjs@13.2.0/+esm",
+        "ts-gaussian": "https://cdn.jsdelivr.net/npm/ts-gaussian@3/+esm",
+        "uuid": "https://cdn.jsdelivr.net/npm/uuid@11/+esm"
+      }
+    }
+  </script>
   <style>
     table tr:nth-child(even) { background-color: #f9fafb; }
   </style>
@@ -39,6 +48,6 @@
     </div>
   </section>
 
-  <script src="stats.js"></script>
+  <script type="module" src="stats.js"></script>
 </body>
 </html>
