@@ -68,6 +68,7 @@
   <section id="round-controls" class="hidden card bg-white rounded-2xl p-6 w-full max-w-md">
     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
       <h2 id="round-title" class="text-lg font-semibold text-gray-600 italic">Sin ronda generada</h2>
+      <select id="round-menu" class="border rounded-xl p-2 text-sm hidden"></select>
       <div class="flex flex-wrap gap-2 justify-center">
         <button id="next" class="bg-green-600 hover:bg-green-700 text-white rounded-xl px-4 py-2 text-sm font-medium">Generar ronda</button>
         <button id="delete-round" class="bg-yellow-500 hover:bg-yellow-600 text-white rounded-xl px-4 py-2 text-sm font-medium">Borrar ronda</button>
@@ -108,11 +109,17 @@
       <label for="select-round" class="text-sm text-gray-600">Ronda</label>
       <select id="select-round" class="border rounded-xl p-2"></select>
 
-      <label for="select-dupla-a" class="text-sm text-gray-600">Dupla A</label>
-      <select id="select-dupla-a" class="border rounded-xl p-2"></select>
+      <label for="player-a1" class="text-sm text-gray-600">Jugador A1</label>
+      <select id="player-a1" class="border rounded-xl p-2"></select>
 
-      <label for="select-dupla-b" class="text-sm text-gray-600">Dupla B</label>
-      <select id="select-dupla-b" class="border rounded-xl p-2"></select>
+      <label for="player-a2" class="text-sm text-gray-600">Jugador A2</label>
+      <select id="player-a2" class="border rounded-xl p-2"></select>
+
+      <label for="player-b1" class="text-sm text-gray-600">Jugador B1</label>
+      <select id="player-b1" class="border rounded-xl p-2"></select>
+
+      <label for="player-b2" class="text-sm text-gray-600">Jugador B2</label>
+      <select id="player-b2" class="border rounded-xl p-2"></select>
 
       <label for="score-a" class="text-sm text-gray-600">Marcador A</label>
       <input id="score-a" type="number" min="0" class="border rounded-xl p-2" />
