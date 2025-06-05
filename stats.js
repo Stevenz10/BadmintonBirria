@@ -26,7 +26,7 @@ function getGroup(elo) {
 }
 
 async function computeTrueSkill(matches) {
-  const { TrueSkill, rate } = await import('https://cdn.jsdelivr.net/npm/ts-trueskill@5/dist/src/index.js');
+  const { TrueSkill, rate } = await import('https://cdn.jsdelivr.net/npm/ts-trueskill@5/+esm');
   const env = new TrueSkill(ELO_INITIAL, ELO_INITIAL / 3);
   const ratings = {};
   const sorted = [...matches].sort((a, b) => a.id - b.id);
