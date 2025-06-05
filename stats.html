@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
   <script>
-    tailwind.config = { darkMode: 'class' };
+    tailwind.config = {};
   </script>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -28,23 +28,22 @@
     .card:hover { @apply shadow-xl -translate-y-0.5; }
   </style>
 </head>
-<body class="bg-gradient-to-br from-teal-100 via-sky-100 to-fuchsia-100 dark:from-slate-900 dark:via-slate-800 dark:to-slate-700 min-h-screen flex flex-col items-center p-4 gap-6 dark:text-gray-100">
-  <header class="sticky top-0 z-10 w-full bg-white/80 dark:bg-gray-900/80 backdrop-blur rounded-b-xl shadow flex flex-col items-center gap-2 p-4">
-    <h1 class="text-3xl font-extrabold tracking-tight text-gray-800 dark:text-gray-100 drop-shadow-sm">Estadísticas de Partidos</h1>
+<body class="bg-gradient-to-br from-teal-100 via-sky-100 to-fuchsia-100 min-h-screen flex flex-col items-center p-4 gap-6 text-gray-800">
+  <header class="sticky top-0 z-10 w-full bg-white/80 backdrop-blur rounded-b-xl shadow flex flex-col items-center gap-2 p-4">
+    <h1 class="text-3xl font-extrabold tracking-tight text-gray-800 drop-shadow-sm">Estadísticas de Partidos</h1>
     <div class="flex gap-3">
       <a href="index.html" class="text-sm text-blue-600 underline">Inicio</a>
-      <button id="theme-toggle" class="text-sm text-gray-600 dark:text-gray-300 underline">Modo oscuro</button>
     </div>
   </header>
 
-  <section class="card bg-white dark:bg-gray-800 rounded-2xl p-6 w-full max-w-md shadow-lg">
+  <section class="card bg-white rounded-2xl p-6 w-full max-w-md shadow-lg">
     <h2 class="text-xl font-semibold mb-4">Filtrar por Birria</h2>
     <select id="birria-select" class="border rounded-xl p-2 w-full mb-2"></select>
   </section>
 
-  <section class="card bg-white dark:bg-gray-800 rounded-2xl p-6 w-full max-w-md shadow-lg" id="general-section">
+  <section class="card bg-white rounded-2xl p-6 w-full max-w-md shadow-lg" id="general-section">
     <h2 class="text-xl font-semibold mb-4">Estadísticas Generales</h2>
-    <label for="min-games" class="text-sm text-gray-600 dark:text-gray-300">Partidas mínimas:</label>
+    <label for="min-games" class="text-sm text-gray-700">Partidas mínimas:</label>
     <select id="min-games" class="border rounded-xl p-2 w-full mb-3">
       <option value="0">Todas</option>
       <option value="25">25+</option>
@@ -56,7 +55,7 @@
     </div>
   </section>
 
-  <section class="card bg-white dark:bg-gray-800 rounded-2xl p-6 w-full max-w-md shadow-lg" id="player-section">
+  <section class="card bg-white rounded-2xl p-6 w-full max-w-md shadow-lg" id="player-section">
     <h2 class="text-xl font-semibold mb-4">Estadísticas de Jugador</h2>
     <select id="player-select" class="border rounded-xl p-2 w-full mb-3"></select>
     <div class="overflow-x-auto mb-3">
@@ -69,20 +68,5 @@
   </section>
 
   <script type="module" src="stats.js"></script>
-  <script>
-    const themeToggle = document.getElementById('theme-toggle');
-    document.documentElement.classList.add('transition-colors','duration-300');
-    function applyTheme(dark) {
-      document.documentElement.classList.toggle('dark', dark);
-      localStorage.setItem('theme', dark ? 'dark' : 'light');
-      themeToggle.textContent = dark ? 'Modo claro' : 'Modo oscuro';
-    }
-    themeToggle.addEventListener('click', () => {
-      applyTheme(!document.documentElement.classList.contains('dark'));
-    });
-    const stored = localStorage.getItem('theme');
-    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    applyTheme(stored ? stored === 'dark' : prefersDark);
-  </script>
 </body>
 </html>
