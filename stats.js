@@ -4,7 +4,6 @@ const supa = supabase.createClient(supabaseUrl, supabaseKey);
 
 // ----- Parámetros de Elo (inspirados en el script en Python) -----
 const ELO_INITIAL = 875;
-const K_FACTOR = 32;
 const UMBRAL_ELO_B = 850;
 const UMBRAL_ELO_A = 1000;
 
