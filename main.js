@@ -14,6 +14,7 @@
     const playerSection   = qs('#player-list');
     const roundSection    = qs('#round-controls');
     const roundTitle      = qs('#round-title');
+    const roundMenu       = qs('#round-menu');
     const pairTable       = qs('#pairings-table');
     const soloSection     = qs('#solo-section');
     const soloPartnerSel  = qs('#solo-partner');
@@ -33,8 +34,10 @@
     const birriaSelect    = qs('#birria-select');
     const selectRound     = qs('#select-round');
 
-    const selectDuplaA    = qs('#select-dupla-a');
-    const selectDuplaB    = qs('#select-dupla-b');
+    const playerA1Sel     = qs('#player-a1');
+    const playerA2Sel     = qs('#player-a2');
+    const playerB1Sel     = qs('#player-b1');
+    const playerB2Sel     = qs('#player-b2');
     const scoreAInput     = qs('#score-a');
     const scoreBInput     = qs('#score-b');
     const saveMatchBtn    = qs('#save-match-btn');
@@ -47,8 +50,8 @@
     let stats    = JSON.parse(localStorage.getItem('stats')    || '{}');
     let absents  = JSON.parse(localStorage.getItem('absents')  || '[]');
     let round    = history.length;
-    let lastExtremes = null;
-    let currentBirriaId = null;
+    let currentRoundIdx = history.length ? history.length - 1 : null;
+    let currentBirriaId = localStorage.getItem('currentBirriaId') || null;
     let lastRondaId = null;
     let currentSolo = null;
     const playersMap = {};
@@ -58,6 +61,11 @@
       localStorage.setItem('history', JSON.stringify(history));
       localStorage.setItem('stats',   JSON.stringify(stats));
       localStorage.setItem('absents', JSON.stringify(absents));
+      if (currentBirriaId) {
+        localStorage.setItem('currentBirriaId', currentBirriaId);
+      } else {
+        localStorage.removeItem('currentBirriaId');
+      }
     };
 
     /* =================== Supabase helpers =================== */
@@ -87,6 +95,7 @@
       if (error) { console.error(error); return null; }
       currentBirriaId = data.id;
       birriaInfo.textContent = `Birria ${data.notes || data.play_date}`;
+      save();
 
       birriaSection.classList.remove('hidden');
       newBirriaBtn.classList.add('hidden');
@@ -166,6 +175,12 @@
         stats[solo].sum   += len + 1;
         stats[solo].count += 1;
       }
+    }
+    function recomputeStats() {
+      stats = {};
+      history.forEach(h => {
+        record(h.pairs, h.solo);
+      });
     }
     const avg = n => stats[n] ? (stats[n].sum / stats[n].count).toFixed(2) : '-';
 
@@ -261,7 +276,7 @@
     /* =================== Algoritmo de parejas =================== */
     function generateRound(idx) {
       const active = players.filter(p => !absents.includes(p));
-      if (active.length < 3) return { pairs: [], solo: null, extremes: null };
+      if (active.length < 3) return { pairs: [], solo: null };
       const oddOriginal = active.length % 2 === 1;
       let arr = [...active];
       if (oddOriginal) arr.push('DESCANSO');
@@ -299,11 +314,7 @@
         return dv - du; // peor primero
       });
 
-      let extremes = null;
-      if (pairs.length >= 3) {
-        extremes = [...pairs[0], ...pairs[1], ...pairs[pairs.length - 2], ...pairs[pairs.length - 1]].sort();
-      }
-      return { pairs, solo, extremes };
+      return { pairs, solo };
     }
 
     /* =================== Mostrar ronda e historial =================== */
@@ -340,6 +351,26 @@
         div.innerHTML = html;
         historyList.appendChild(div);
       });
+      renderRoundMenu();
+    }
+
+    function renderRoundMenu() {
+      roundMenu.innerHTML = '';
+      history.forEach((h, i) => {
+        const opt = document.createElement('option');
+        opt.value = i;
+        opt.textContent = `Ronda ${i + 1}`;
+        roundMenu.appendChild(opt);
+      });
+      if (history.length) {
+        roundMenu.classList.remove('hidden');
+        if (currentRoundIdx === null) currentRoundIdx = history.length - 1;
+        if (currentRoundIdx >= history.length) currentRoundIdx = history.length - 1;
+        roundMenu.value = currentRoundIdx;
+      } else {
+        roundMenu.classList.add('hidden');
+        currentRoundIdx = null;
+      }
     }
 
     /* =================== Matriz de combinaciones =================== */
@@ -379,6 +410,7 @@
     }
     /* =================== Rondas y duplas desde Supabase =================== */
     let roundsData = [];
+    let duplasData = [];
     let matchesData = [];
 
     async function loadRounds() {
@@ -411,19 +443,26 @@
         return;
       }
       const list = data || [];
+      duplasData = list;
+      const playersSet = new Set();
+      list.forEach(d => {
+        if (d.player_a?.name) playersSet.add(d.player_a.name);
+        if (d.player_b?.name) playersSet.add(d.player_b.name);
+      });
+      const playersArr = Array.from(playersSet).sort();
       const buildOpts = sel => {
-        sel.innerHTML = '<option value="">Elige dupla</option>';
-        list.forEach(d => {
+        sel.innerHTML = '<option value="">Elige jugador</option>';
+        playersArr.forEach(n => {
           const opt = document.createElement('option');
-          const a = d.player_a?.name || 'JugadorA';
-          const b = d.player_b?.name || 'JugadorB';
-          opt.value = d.id;
-          opt.textContent = `${a} + ${b}`;
+          opt.value = n;
+          opt.textContent = n;
           sel.appendChild(opt);
         });
       };
-      buildOpts(selectDuplaA);
-      buildOpts(selectDuplaB);
+      [playerA1Sel, playerA2Sel, playerB1Sel, playerB2Sel].forEach(sel => {
+        buildOpts(sel);
+        sel.value = '';
+      });
 
       pairTable.innerHTML = '<tr><th class="border p-2 bg-gray-100">#</th><th class="border p-2 bg-gray-100">Dupla</th></tr>';
       list.forEach((d, i) => {
@@ -513,6 +552,7 @@
         const id = birriaSelect.value || null;
         if (!id) {
           currentBirriaId = null;
+          save();
           birriaInfo.textContent = '';
           deleteBirriaBtn.classList.add('hidden');
           await loadRounds();
@@ -531,6 +571,7 @@
         }
         currentBirriaId = id;
         birriaInfo.textContent = `Birria ${sel.textContent}`;
+        save();
         deleteBirriaBtn.classList.remove('hidden');
         await loadRounds();
         await loadHistoryFromDB();
@@ -585,20 +626,16 @@
         const active = players.filter(p => !absents.includes(p));
         if (active.length < 3) return;
         const data = generateRound(round);
-        if (data.extremes && lastExtremes && JSON.stringify(data.extremes) === JSON.stringify(lastExtremes) && active.length >= 8) {
-          round++;
-          return nextBtn.onclick();
-        }
         roundTitle.textContent = `Ronda (${round + 1}) actual`;
         showRound(data);
         record(data.pairs, data.solo);
         history.push({ round: round + 1, pairs: data.pairs, solo: data.solo });
-        lastExtremes = data.extremes;
         save();
         renderHistory();
         renderPlayers();
         updateMatrixTable();
         round++;
+        currentRoundIdx = history.length - 1;
         currentSolo = data.solo;
         if (currentBirriaId) {
           lastRondaId = await saveRoundToSupabase(data.pairs, round);
@@ -627,25 +664,44 @@
         currentSolo = null;
       };
 
-    deleteBtn.onclick = () => {
+    async function deleteRoundFromDB(num) {
+      const rec = roundsData.find(r => r.round_num === num);
+      if (!rec) return;
+      await supa.from('partidas').delete().eq('ronda_id', rec.id);
+      await supa.from('duplas').delete().eq('ronda_id', rec.id);
+      await supa.from('rondas').delete().eq('id', rec.id);
+      await loadRounds();
+    }
+
+    deleteBtn.onclick = async () => {
       if (!history.length) return;
-      if (prompt('Escribe SEGURO para borrar la última ronda') !== 'SEGURO') return;
-      history.pop();
-      if (round > 0) round--;
-      lastExtremes = null;
+      const idx = currentRoundIdx ?? history.length - 1;
+      const num = idx + 1;
+      if (prompt('Escribe SEGURO para borrar la ronda seleccionada') !== 'SEGURO') return;
+      history.splice(idx, 1);
+      history.forEach((h, i) => { h.round = i + 1; });
+      round = history.length;
       currentSolo = null;
+      recomputeStats();
       save();
+      if (currentBirriaId) await deleteRoundFromDB(num);
       if (history.length) {
-        const last = history[history.length - 1];
-        roundTitle.textContent = `Ronda (${last.round}) actual`;
-        showRound(last);
+        if (idx >= history.length) currentRoundIdx = history.length - 1; else currentRoundIdx = idx;
+        const cur = history[currentRoundIdx];
+        roundTitle.textContent = `Ronda (${cur.round}) actual`;
+        showRound(cur);
       } else {
         pairTable.innerHTML = '';
         roundTitle.textContent = 'Sin ronda generada';
+        currentRoundIdx = null;
       }
       renderHistory();
       renderPlayers();
       updateMatrixTable();
+      if (currentBirriaId) {
+        await refreshStatsFromDB();
+        renderPlayers();
+      }
     };
 
     resetBtn.onclick = () => {
@@ -655,7 +711,7 @@
       stats = {};
       absents = [];
       round = 0;
-      lastExtremes = null;
+      currentRoundIdx = null;
       currentSolo = null;
       save();
       renderPlayers();
@@ -674,6 +730,16 @@
       }
     };
 
+    roundMenu.onchange = () => {
+      if (!history.length) return;
+      const idx = parseInt(roundMenu.value, 10);
+      if (isNaN(idx) || idx < 0 || idx >= history.length) return;
+      currentRoundIdx = idx;
+      const h = history[idx];
+      roundTitle.textContent = `Ronda (${h.round}) actual`;
+      showRound(h);
+    };
+
     selectRound.onchange = () => {
       const id = selectRound.value;
       if (id) {
@@ -688,14 +754,42 @@
 
     saveMatchBtn.onclick = async () => {
       const rondaId = selectRound.value;
-      const duplaA = selectDuplaA.value;
-      const duplaB = selectDuplaB.value;
+      const a1 = playerA1Sel.value;
+      const a2 = playerA2Sel.value;
+      const b1 = playerB1Sel.value;
+      const b2 = playerB2Sel.value;
       const sA = parseInt(scoreAInput.value, 10);
       const sB = parseInt(scoreBInput.value, 10);
-      if (!rondaId || !duplaA || !duplaB || duplaA === duplaB || isNaN(sA) || isNaN(sB)) {
+      const chosen = [a1, a2, b1, b2];
+      const unique = new Set(chosen);
+      if (!rondaId || chosen.some(x => !x) || unique.size !== 4 || isNaN(sA) || isNaN(sB)) {
         alert('Completa todos los campos correctamente');
         return;
       }
+
+      async function duplaIdOf(p, q) {
+        const found = duplasData.find(d => {
+          const n1 = d.player_a?.name;
+          const n2 = d.player_b?.name;
+          return (n1 === p && n2 === q) || (n1 === q && n2 === p);
+        });
+        if (found) return found.id;
+        const pId = await getPlayerId(p);
+        const qId = await getPlayerId(q);
+        const position = duplasData.length + 1;
+        const { data, error } = await supa
+          .from('duplas')
+          .insert({ ronda_id: rondaId, player_a: pId, player_b: qId, position })
+          .select('id')
+          .single();
+        if (error) { console.error(error); return null; }
+        duplasData.push({ id: data.id, position, player_a:{name:p}, player_b:{name:q} });
+        return data.id;
+      }
+
+      const duplaA = await duplaIdOf(a1, a2);
+      const duplaB = await duplaIdOf(b1, b2);
+      if (!duplaA || !duplaB) return;
       const winner = sA >= sB ? duplaA : duplaB;
       let error;
       if (selectMatch.value) {
@@ -727,6 +821,10 @@
         scoreAInput.value = '';
         scoreBInput.value = '';
         selectMatch.value = '';
+        playerA1Sel.value = '';
+        playerA2Sel.value = '';
+        playerB1Sel.value = '';
+        playerB2Sel.value = '';
         await loadMatches(rondaId);
         await refreshStatsFromDB();
         renderPlayers();
@@ -745,6 +843,10 @@
         renderPlayers();
         scoreAInput.value = '';
         scoreBInput.value = '';
+        playerA1Sel.value = '';
+        playerA2Sel.value = '';
+        playerB1Sel.value = '';
+        playerB2Sel.value = '';
       }
     };
 
@@ -753,14 +855,18 @@
       if (!id) {
         scoreAInput.value = '';
         scoreBInput.value = '';
-        selectDuplaA.value = '';
-        selectDuplaB.value = '';
+        playerA1Sel.value = '';
+        playerA2Sel.value = '';
+        playerB1Sel.value = '';
+        playerB2Sel.value = '';
         return;
       }
       const m = matchesData.find(x => x.id === id);
       if (m) {
-        selectDuplaA.value = m.dupla_a_id;
-        selectDuplaB.value = m.dupla_b_id;
+        playerA1Sel.value = m.dupla_a?.player_a?.name || '';
+        playerA2Sel.value = m.dupla_a?.player_b?.name || '';
+        playerB1Sel.value = m.dupla_b?.player_a?.name || '';
+        playerB2Sel.value = m.dupla_b?.player_b?.name || '';
         scoreAInput.value = m.score_a;
         scoreBInput.value = m.score_b;
       }
@@ -791,14 +897,31 @@
           appDiv.classList.remove('hidden');
           birriaSection.classList.remove('hidden');
           await loadBirrias();
-          await refreshStatsFromDB();
-          playerSection.classList.add('hidden');
-          roundSection.classList.add('hidden');
-          qs('#history-section').classList.add('hidden');
-          matrixSection.classList.add('hidden');
-          matchSection.classList.add('hidden');
-          pairTable.innerHTML = '';
-          roundTitle.textContent = 'Sin ronda seleccionada';
+          if (currentBirriaId) {
+            birriaSelect.value = currentBirriaId;
+            const sel = birriaSelect.options[birriaSelect.selectedIndex];
+            birriaInfo.textContent = `Birria ${sel?.textContent || ''}`;
+            deleteBirriaBtn.classList.toggle('hidden', false);
+            await loadRounds();
+            await loadHistoryFromDB();
+            if (history.length) {
+              currentRoundIdx = history.length - 1;
+              const last = history[currentRoundIdx];
+              roundTitle.textContent = `Ronda (${last.round}) actual`;
+              showRound(last);
+            }
+            await refreshStatsFromDB();
+            renderPlayers();
+          } else {
+            await refreshStatsFromDB();
+            playerSection.classList.add('hidden');
+            roundSection.classList.add('hidden');
+            qs('#history-section').classList.add('hidden');
+            matrixSection.classList.add('hidden');
+            matchSection.classList.add('hidden');
+            pairTable.innerHTML = '';
+            roundTitle.textContent = 'Sin ronda seleccionada';
+          }
         } else {
           loginSection.classList.remove('hidden');
           appDiv.classList.add('hidden');
