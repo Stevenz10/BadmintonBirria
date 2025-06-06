@@ -64,7 +64,7 @@ async function computeTrueSkill(matches) {
     [ratings[b1], ratings[b2]] = newRatings[1];
 
     [a1, a2, b1, b2].forEach(p => {
-      ratingHistory[p].push({ x: idx + 1, y: env.expose(ratings[p]) + ELO_INITIAL });
+      ratingHistory[p].push({ x: ratingHistory[p].length + 1, y: env.expose(ratings[p]) + ELO_INITIAL });
     });
   });
   const exposed = {};
@@ -245,12 +245,14 @@ function renderPlayer(name) {
       duoTable.innerHTML += `<tr><td class='border p-2'>${m}</td><td class='border p-2'>${wr}</td><td class='border p-2'>${s.played}</td></tr>`;
     });
 
-  h2hTable.innerHTML = '<tr><th class="border p-2 bg-gray-100">Rival</th><th class="border p-2 bg-gray-100">Victorias</th><th class="border p-2 bg-gray-100">Derrotas</th></tr>';
+  h2hTable.innerHTML = '<tr><th class="border p-2 bg-gray-100">Rival</th><th class="border p-2 bg-gray-100">WR</th><th class="border p-2 bg-gray-100">Victorias</th><th class="border p-2 bg-gray-100">Derrotas</th></tr>';
   Object.keys(h2hStats)
     .sort((a, b) => (h2hStats[b].wins + h2hStats[b].losses) - (h2hStats[a].wins + h2hStats[a].losses))
     .forEach(r => {
       const s = h2hStats[r];
-      h2hTable.innerHTML += `<tr><td class='border p-2'>${r}</td><td class='border p-2'>${s.wins}</td><td class='border p-2'>${s.losses}</td></tr>`;
+      const total = s.wins + s.losses;
+      const wr = total ? ((s.wins / total) * 100).toFixed(1) + '%' : '-';
+      h2hTable.innerHTML += `<tr><td class='border p-2'>${r}</td><td class='border p-2'>${wr}</td><td class='border p-2'>${s.wins}</td><td class='border p-2'>${s.losses}</td></tr>`;
     });
 
   if (tsChart) { tsChart.destroy(); }
