@@ -153,7 +153,7 @@
       const fields = { birria_id: currentBirriaId, round_num: num };
       if (solo) {
         const soloId = await getPlayerId(solo);
-        fields.solo_player = soloId;
+        fields.solo_player_id = soloId;
       }
       let { data, error } = await supa.from('rondas').insert(fields).select('id').single();
       if (error) { console.error(error); return; }
@@ -536,7 +536,7 @@
       }
       const { data, error } = await supa
         .from('rondas')
-        .select('round_num, solo:solo_player(name), duplas(position, player_a(name), player_b(name))')
+        .select('round_num, solo:solo_player_id(name), duplas(position, player_a(name), player_b(name))')
         .eq('birria_id', currentBirriaId)
         .order('round_num');
       if (error) { console.error(error); return; }
