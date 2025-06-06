@@ -105,7 +105,7 @@
     async function refreshStatsFromDB() {
       let query = supa
         .from('duplas')
-        .select('position, ronda_id, rondas!inner(birria_id, solo_player_id), player_a(name), player_b(name)');
+        .select('position, ronda_id, rondas!inner(birria_id, solo_player), player_a(name), player_b(name)');
       if (currentBirriaId) query = query.eq('rondas.birria_id', currentBirriaId);
       const { data, error } = await query;
       if (error) { console.error(error); return; }
@@ -134,7 +134,7 @@
       });
       const { data: rounds } = await supa
         .from('rondas')
-        .select('id, solo:solo_player_id(name)')
+        .select('id, solo:solo_player(name)')
         .in('id', Object.keys(maxPos));
       (rounds || []).forEach(r => {
         const soloName = r.solo?.name || soloMap[r.id];
@@ -173,7 +173,7 @@
       let soloId = null;
       if (solo) {
         soloId = await getPlayerId(solo);
-        fields.solo_player_id = soloId;
+        fields.solo_player = soloId;
       }
       let { data, error } = await supa.from('rondas').insert(fields).select('id').single();
       if (error) { console.error(error); return; }
@@ -566,7 +566,7 @@
       }
       const { data, error } = await supa
         .from('rondas')
-        .select('round_num, solo:solo_player_id(name), duplas(position, player_a(name), player_b(name))')
+        .select('round_num, solo:solo_player(name), duplas(position, player_a(name), player_b(name))')
         .eq('birria_id', currentBirriaId)
         .order('round_num');
       if (error) { console.error(error); return; }
