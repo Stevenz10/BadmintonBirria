@@ -105,7 +105,7 @@
     async function refreshStatsFromDB() {
       let query = supa
         .from('duplas')
-        .select('position, ronda_id, rondas!inner(birria_id, solo_player_id), player_a(name), player_b(name)');
+        .select('position, ronda_id, rondas!inner(birria_id), player_a(name), player_b(name)');
       if (currentBirriaId) query = query.eq('rondas.birria_id', currentBirriaId);
       const { data, error } = await query;
       if (error) { console.error(error); return; }
@@ -132,14 +132,9 @@
           pSet.add(n);
         });
       });
-      const { data: rounds } = await supa
-        .from('rondas')
-        .select('id, solo:solo_player_id(name)')
-        .in('id', Object.keys(maxPos));
-      (rounds || []).forEach(r => {
-        const soloName = r.solo?.name || soloMap[r.id];
-        if (!soloName) return;
-        const pos = maxPos[r.id] || 0;
+      Object.keys(soloMap).forEach(rId => {
+        const soloName = soloMap[rId];
+        const pos = maxPos[rId] || 0;
         stats[soloName] = stats[soloName] || { sum: 0, count: 0 };
         stats[soloName].sum += pos;
         stats[soloName].count += 1;
@@ -173,7 +168,6 @@
       let soloId = null;
       if (solo) {
         soloId = await getPlayerId(solo);
-        fields.solo_player_id = soloId;
       }
       let { data, error } = await supa.from('rondas').insert(fields).select('id').single();
       if (error) { console.error(error); return; }
@@ -566,13 +560,13 @@
       }
       const { data, error } = await supa
         .from('rondas')
-        .select('round_num, solo:solo_player_id(name), duplas(position, player_a(name), player_b(name))')
+        .select('round_num, duplas(position, player_a(name), player_b(name))')
         .eq('birria_id', currentBirriaId)
         .order('round_num');
       if (error) { console.error(error); return; }
       history = (data || []).map(r => {
         const pairs = [];
-        let solo = r.solo?.name || null;
+        let solo = null;
         (r.duplas || [])
           .sort((a,b)=>a.position-b.position)
           .forEach(d => {
