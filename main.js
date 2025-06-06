@@ -51,6 +51,7 @@
     let currentBirriaId = localStorage.getItem('currentBirriaId') || null;
     let lastRondaId = null;
     const playersMap = {};
+    const SOLO_DUMMY = '__SOLO__';
 
     const save = () => {
       localStorage.setItem('players', JSON.stringify(players));
@@ -104,16 +105,21 @@
     async function refreshStatsFromDB() {
       let query = supa
         .from('duplas')
-        .select('position, ronda_id, rondas!inner(birria_id), player_a(name), player_b(name)');
+        .select('position, ronda_id, rondas!inner(birria_id, solo_player_id), player_a(name), player_b(name)');
       if (currentBirriaId) query = query.eq('rondas.birria_id', currentBirriaId);
       const { data, error } = await query;
       if (error) { console.error(error); return; }
       stats = {};
       const pSet = new Set();
       const seen = new Set();
+      const maxPos = {};
+      const soloMap = {};
       (data || []).forEach(d => {
+        maxPos[d.ronda_id] = Math.max(maxPos[d.ronda_id] || 0, d.position || 0);
         const a = d.player_a?.name;
         const b = d.player_b?.name;
+        if (a === SOLO_DUMMY) { soloMap[d.ronda_id] = b; return; }
+        if (b === SOLO_DUMMY) { soloMap[d.ronda_id] = a; return; }
         if (!a || !b) return;
         const key = `${d.ronda_id}|${[a, b].sort().join('|')}`;
         if (seen.has(key)) return; // evitar duplicados por partidas
@@ -126,7 +132,20 @@
           pSet.add(n);
         });
       });
-      players = Array.from(pSet).sort();
+      const { data: rounds } = await supa
+        .from('rondas')
+        .select('id, solo:solo_player_id(name)')
+        .in('id', Object.keys(maxPos));
+      (rounds || []).forEach(r => {
+        const soloName = r.solo?.name || soloMap[r.id];
+        if (!soloName) return;
+        const pos = maxPos[r.id] || 0;
+        stats[soloName] = stats[soloName] || { sum: 0, count: 0 };
+        stats[soloName].sum += pos;
+        stats[soloName].count += 1;
+        pSet.add(soloName);
+      });
+      players = Array.from(pSet).filter(n => n !== SOLO_DUMMY).sort();
       save();
     }
 
@@ -151,8 +170,9 @@
     async function saveRoundToSupabase(pairs, num, solo) {
       if (!currentBirriaId) return null;
       const fields = { birria_id: currentBirriaId, round_num: num };
+      let soloId = null;
       if (solo) {
-        const soloId = await getPlayerId(solo);
+        soloId = await getPlayerId(solo);
         fields.solo_player_id = soloId;
       }
       let { data, error } = await supa.from('rondas').insert(fields).select('id').single();
@@ -164,6 +184,10 @@
         const aId = await getPlayerId(a);
         const bId = await getPlayerId(b);
         duplas.push({ ronda_id: rondaId, player_a: aId, player_b: bId, position: i+1 });
+      }
+      if (solo) {
+        const dummyId = await getPlayerId(SOLO_DUMMY);
+        duplas.push({ ronda_id: rondaId, player_a: soloId, player_b: dummyId, position: pairs.length + 1 });
       }
       const { error: dErr } = await supa.from('duplas').insert(duplas);
       if (dErr) console.error(dErr);
@@ -466,7 +490,7 @@
         console.error(error);
         return;
       }
-      const list = data || [];
+      const list = (data || []).filter(d => d.player_a?.name !== SOLO_DUMMY && d.player_b?.name !== SOLO_DUMMY);
       duplasData = list;
       const playersSet = new Set();
       list.forEach(d => {
@@ -489,10 +513,16 @@
       });
 
       pairTable.innerHTML = '<tr><th class="border p-2 bg-gray-100">#</th><th class="border p-2 bg-gray-100">Dupla</th></tr>';
-      list.forEach((d, i) => {
+      (data || []).sort((a,b)=>a.position-b.position).forEach((d, idx) => {
         const a = d.player_a?.name || 'A';
         const b = d.player_b?.name || 'B';
-        pairTable.innerHTML += `<tr><td class='border p-2 font-medium bg-gray-50'>Duo ${i + 1}</td><td class='border p-2'>${a} + ${b}</td></tr>`;
+        if (a === SOLO_DUMMY) {
+          pairTable.innerHTML += `<tr><td class='border p-2 font-medium bg-yellow-100'>Solo</td><td class='border p-2 text-red-600'>${b}</td></tr>`;
+        } else if (b === SOLO_DUMMY) {
+          pairTable.innerHTML += `<tr><td class='border p-2 font-medium bg-yellow-100'>Solo</td><td class='border p-2 text-red-600'>${a}</td></tr>`;
+        } else {
+          pairTable.innerHTML += `<tr><td class='border p-2 font-medium bg-gray-50'>Duo ${idx + 1}</td><td class='border p-2'>${a} + ${b}</td></tr>`;
+        }
       });
       const r = roundsData.find(r => r.id === rondaId);
       roundTitle.textContent = r ? `Ronda (${r.round_num}) guardada` : 'Ronda';
@@ -540,13 +570,20 @@
         .eq('birria_id', currentBirriaId)
         .order('round_num');
       if (error) { console.error(error); return; }
-      history = (data || []).map(r => ({
-        round: r.round_num,
-        pairs: (r.duplas || [])
-          .sort((a,b) => a.position - b.position)
-          .map(d => [d.player_a?.name || '', d.player_b?.name || '']),
-        solo: r.solo?.name || null
-      }));
+      history = (data || []).map(r => {
+        const pairs = [];
+        let solo = r.solo?.name || null;
+        (r.duplas || [])
+          .sort((a,b)=>a.position-b.position)
+          .forEach(d => {
+            const a = d.player_a?.name || '';
+            const b = d.player_b?.name || '';
+            if (a === SOLO_DUMMY) solo = b;
+            else if (b === SOLO_DUMMY) solo = a;
+            else pairs.push([a,b]);
+          });
+        return { round: r.round_num, pairs, solo };
+      });
       round = history.length;
       save();
       renderHistory();
