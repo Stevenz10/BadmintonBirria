@@ -148,9 +148,14 @@
       if (currentBirriaId) birriaSelect.value = currentBirriaId;
     }
 
-    async function saveRoundToSupabase(pairs, num) {
+    async function saveRoundToSupabase(pairs, num, solo) {
       if (!currentBirriaId) return null;
-      let { data, error } = await supa.from('rondas').insert({ birria_id: currentBirriaId, round_num: num }).select('id').single();
+      const fields = { birria_id: currentBirriaId, round_num: num };
+      if (solo) {
+        const soloId = await getPlayerId(solo);
+        fields.solo_player = soloId;
+      }
+      let { data, error } = await supa.from('rondas').insert(fields).select('id').single();
       if (error) { console.error(error); return; }
       const rondaId = data.id;
       const duplas = [];
@@ -531,7 +536,7 @@
       }
       const { data, error } = await supa
         .from('rondas')
-        .select('round_num, duplas(position, player_a(name), player_b(name))')
+        .select('round_num, solo:solo_player(name), duplas(position, player_a(name), player_b(name))')
         .eq('birria_id', currentBirriaId)
         .order('round_num');
       if (error) { console.error(error); return; }
@@ -540,7 +545,7 @@
         pairs: (r.duplas || [])
           .sort((a,b) => a.position - b.position)
           .map(d => [d.player_a?.name || '', d.player_b?.name || '']),
-        solo: null
+        solo: r.solo?.name || null
       }));
       round = history.length;
       save();
@@ -656,7 +661,7 @@
         round++;
         currentRoundIdx = history.length - 1;
         if (currentBirriaId) {
-          lastRondaId = await saveRoundToSupabase(data.pairs, round);
+          lastRondaId = await saveRoundToSupabase(data.pairs, round, data.solo);
           await refreshStatsFromDB();
           renderPlayers();
         }
