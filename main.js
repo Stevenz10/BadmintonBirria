@@ -484,12 +484,12 @@
         console.error(error);
         return;
       }
-      const list = (data || []).filter(d => d.player_a?.name !== SOLO_DUMMY && d.player_b?.name !== SOLO_DUMMY);
-      duplasData = list;
+      const list = data || [];
+      duplasData = list.filter(d => d.player_a?.name !== SOLO_DUMMY && d.player_b?.name !== SOLO_DUMMY);
       const playersSet = new Set();
       list.forEach(d => {
-        if (d.player_a?.name) playersSet.add(d.player_a.name);
-        if (d.player_b?.name) playersSet.add(d.player_b.name);
+        if (d.player_a?.name && d.player_a.name !== SOLO_DUMMY) playersSet.add(d.player_a.name);
+        if (d.player_b?.name && d.player_b.name !== SOLO_DUMMY) playersSet.add(d.player_b.name);
       });
       const playersArr = Array.from(playersSet).sort();
       const buildOpts = sel => {
