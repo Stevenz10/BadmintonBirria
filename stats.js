@@ -270,7 +270,10 @@ function renderPlayer(name) {
       },
       options: {
         scales: {
-          x: { title: { display: true, text: 'Partida' } },
+          x: {
+            type: 'linear',
+            title: { display: true, text: 'Partida' }
+          },
           y: { title: { display: true, text: 'TrueSkill' } }
         }
       }
