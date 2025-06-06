@@ -1,6 +1,7 @@
 const supabaseUrl = 'https://dqaxkapftyoemlzwbjgx.supabase.co';
 const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRxYXhrYXBmdHlvZW1sendiamd4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg5MjEzMzYsImV4cCI6MjA2NDQ5NzMzNn0.onSRsrHzLpFaVYCdrxYoa8uFD2WDcd2H0PdVEUmM8UA';
 const supa = supabase.createClient(supabaseUrl, supabaseKey);
+const SOLO_DUMMY = '__SOLO__';
 
 // ----- Parámetros de Elo (inspirados en el script en Python) -----
 const ELO_INITIAL = 875;
@@ -45,6 +46,7 @@ async function computeTrueSkill(matches) {
     const b1 = m.dupla_b?.player_a?.name;
     const b2 = m.dupla_b?.player_b?.name;
     if (!a1 || !a2 || !b1 || !b2) return;
+    if ([a1, a2, b1, b2].includes(SOLO_DUMMY)) return;
 
     [a1, a2, b1, b2].forEach(p => {
       if (!ratings[p]) {
@@ -113,7 +115,7 @@ async function loadPartidas() {
     const a2 = p.dupla_a?.player_b?.name;
     const b1 = p.dupla_b?.player_a?.name;
     const b2 = p.dupla_b?.player_b?.name;
-    [a1, a2, b1, b2].forEach(n => { if (n) players.add(n); });
+    [a1, a2, b1, b2].forEach(n => { if (n && n !== SOLO_DUMMY) players.add(n); });
   });
   eloRatings = await computeTrueSkill(partidas);
   renderGeneral();
@@ -139,6 +141,7 @@ function renderGeneral() {
     const duoB = [p.dupla_b?.player_a?.name, p.dupla_b?.player_b?.name];
     const winnerId = p.winner_dupla;
     const winner = winnerId === p.dupla_a?.id ? 'A' : (winnerId === p.dupla_b?.id ? 'B' : null);
+    if (duoA.includes(SOLO_DUMMY) || duoB.includes(SOLO_DUMMY)) return;
     duoA.forEach(n => {
       if (!n) return;
       stats[n] = stats[n] || { wins:0, played:0, pf:0, pc:0 };
@@ -188,19 +191,20 @@ function renderPlayer(name) {
     const winnerId = p.winner_dupla;
     const winA = winnerId === p.dupla_a?.id;
     const winB = winnerId === p.dupla_b?.id;
+    if (duoA.includes(SOLO_DUMMY) || duoB.includes(SOLO_DUMMY)) return;
     if (duoA.includes(name)) {
       info.played += 1;
       info.pf += p.score_a || 0;
       info.pc += p.score_b || 0;
       if (winA) info.wins += 1;
       const mate = duoA[0] === name ? duoA[1] : duoA[0];
-      if (mate) {
+      if (mate && mate !== SOLO_DUMMY) {
         duoStats[mate] = duoStats[mate] || { wins:0, played:0 };
         duoStats[mate].played += 1;
         if (winA) duoStats[mate].wins += 1;
       }
       duoB.forEach(op => {
-        if (!op) return;
+        if (!op || op === SOLO_DUMMY) return;
         h2hStats[op] = h2hStats[op] || { wins:0, losses:0 };
         if (winA) h2hStats[op].wins += 1; else h2hStats[op].losses +=1;
       });
@@ -210,13 +214,13 @@ function renderPlayer(name) {
       info.pc += p.score_a || 0;
       if (winB) info.wins += 1;
       const mate = duoB[0] === name ? duoB[1] : duoB[0];
-      if (mate) {
+      if (mate && mate !== SOLO_DUMMY) {
         duoStats[mate] = duoStats[mate] || { wins:0, played:0 };
         duoStats[mate].played += 1;
         if (winB) duoStats[mate].wins += 1;
       }
       duoA.forEach(op => {
-        if (!op) return;
+        if (!op || op === SOLO_DUMMY) return;
         h2hStats[op] = h2hStats[op] || { wins:0, losses:0 };
         if (winB) h2hStats[op].wins += 1; else h2hStats[op].losses += 1;
       });
