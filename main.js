@@ -134,7 +134,7 @@
       });
       const { data: rounds } = await supa
         .from('rondas')
-        .select('id, solo:solo_player_id(name)')
+        .select('id, solo:players!solo_player_id(name)')
         .in('id', Object.keys(maxPos));
       (rounds || []).forEach(r => {
         const soloName = r.solo?.name || soloMap[r.id];
@@ -566,7 +566,7 @@
       }
       const { data, error } = await supa
         .from('rondas')
-        .select('round_num, solo:solo_player_id(name), duplas(position, player_a(name), player_b(name))')
+        .select('round_num, solo:players!solo_player_id(name), duplas(position, player_a(name), player_b(name))')
         .eq('birria_id', currentBirriaId)
         .order('round_num');
       if (error) { console.error(error); return; }
