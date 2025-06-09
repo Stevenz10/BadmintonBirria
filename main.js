@@ -325,48 +325,52 @@
         return st.count ? st.sum / st.count : mean;
       };
 
-      let arr = [...active];
+      const baseArr = [...active];
       let solo = null;
-      if (arr.length % 2 === 1) {
-        arr.sort((a, b) => {
+      if (baseArr.length % 2 === 1) {
+        baseArr.sort((a, b) => {
           const sa = soloCounts[a] || 0;
           const sb = soloCounts[b] || 0;
           if (sa !== sb) return sa - sb;
           return avgOf(b) - avgOf(a);
         });
-        solo = arr.shift();
+        solo = baseArr.shift();
       }
 
-      // Barajar jugadores para romper simetrías
-      for (let i = arr.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [arr[i], arr[j]] = [arr[j], arr[i]];
+      function shuffle(a) {
+        for (let i = a.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [a[i], a[j]] = [a[j], a[i]];
+        }
       }
 
-      const pairs = [];
-      while (arr.length >= 2) {
-        const a = arr.shift();
-        arr.sort((x, y) => {
-          const c1 = pairCounts[pairKey(a, x)] || 0;
-          const c2 = pairCounts[pairKey(a, y)] || 0;
-          if (c1 !== c2) return c1 - c2;
-          return Math.abs(avgOf(a) - avgOf(x)) - Math.abs(avgOf(a) - avgOf(y));
-        });
-        const b = arr.shift();
-        pairs.push([a, b]);
-        const k = pairKey(a, b);
-        pairCounts[k] = (pairCounts[k] || 0) + 1;
+      let best = { pairs: [], score: Infinity, fair: Infinity };
+      const ITER = 500;
+      for (let it = 0; it < ITER; it++) {
+        const arr = baseArr.slice();
+        shuffle(arr);
+        const ps = [];
+        while (arr.length >= 2) ps.push([arr.shift(), arr.shift()]);
+        const pScore = ps.reduce((s, [x, y]) => s + (pairCounts[pairKey(x, y)] || 0), 0);
+        if (pScore > best.score) continue;
+        const npos = ps.length + 1;
+        const mean = (npos + 1) / 2;
+        let fair = ps.reduce((a, p) => a + Math.abs(((avgOf(p[0]) + avgOf(p[1])) / 2) - mean), 0);
+        if (solo) fair += Math.abs(avgOf(solo) - npos);
+        if (pScore < best.score || (pScore === best.score && fair < best.fair)) {
+          best = { pairs: ps, score: pScore, fair };
+        }
       }
 
-      const npos = pairs.length + 1;
+      const npos = best.pairs.length + 1;
       const mean = (npos + 1) / 2;
-      pairs.sort((u, v) => {
+      best.pairs.sort((u, v) => {
         const du = ((avgOf(u[0]) + avgOf(u[1])) / 2) - mean;
         const dv = ((avgOf(v[0]) + avgOf(v[1])) / 2) - mean;
         return dv - du;
       });
 
-      return { pairs, solo };
+      return { pairs: best.pairs, solo };
     }
 
     /* =================== Mostrar ronda e historial =================== */
@@ -640,9 +644,12 @@
         if (!confirm('¿Crear nueva birria?')) return;
         await createBirria();
         birriaSelect.value = currentBirriaId;
+        players = [];
+        absents = [];
         history = [];
         stats = {};
         round = 0;
+        currentRoundIdx = null;
         save();
         renderHistory();
         renderPlayers();
