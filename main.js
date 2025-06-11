@@ -344,22 +344,72 @@
         }
       }
 
-      let best = { pairs: [], score: Infinity, fair: Infinity };
-      const ITER = 500;
+      const allPairKeys = [];
+      players.forEach((p, i) => {
+        for (let j = i + 1; j < players.length; j++) {
+          allPairKeys.push(pairKey(p, players[j]));
+        }
+      });
+      const hasUnused = allPairKeys.some(k => !pairCounts[k]);
+
+      let best = { pairs: [], score: Infinity };
+      const ITER = 800;
+      const pairsNeeded = Math.floor(baseArr.length / 2);
       for (let it = 0; it < ITER; it++) {
         const arr = baseArr.slice();
         shuffle(arr);
         const ps = [];
         while (arr.length >= 2) ps.push([arr.shift(), arr.shift()]);
-        const pScore = ps.reduce((s, [x, y]) => s + (pairCounts[pairKey(x, y)] || 0), 0);
-        if (pScore > best.score) continue;
-        const npos = ps.length + 1;
-        const mean = (npos + 1) / 2;
-        let fair = ps.reduce((a, p) => a + Math.abs(((avgOf(p[0]) + avgOf(p[1])) / 2) - mean), 0);
-        if (solo) fair += Math.abs(avgOf(solo) - npos);
-        if (pScore < best.score || (pScore === best.score && fair < best.fair)) {
-          best = { pairs: ps, score: pScore, fair };
+
+        const unusedCnt = ps.reduce((c, [x, y]) => c + (pairCounts[pairKey(x, y)] ? 0 : 1), 0);
+        if (hasUnused && unusedCnt < pairsNeeded) continue;
+
+        const tmpCounts = { ...pairCounts };
+        ps.forEach(([x, y]) => {
+          const k = pairKey(x, y);
+          tmpCounts[k] = (tmpCounts[k] || 0) + 1;
+        });
+        let minC = Infinity, maxC = -Infinity;
+        players.forEach((p, i) => {
+          for (let j = i + 1; j < players.length; j++) {
+            const c = tmpCounts[pairKey(p, players[j])] || 0;
+            if (c < minC) minC = c;
+            if (c > maxC) maxC = c;
+          }
+        });
+        const fairness = maxC - minC;
+        if (fairness < best.score) {
+          best = { pairs: ps, score: fairness, unused: unusedCnt };
+        } else if (fairness === best.score && unusedCnt > (best.unused || 0)) {
+          best = { pairs: ps, score: fairness, unused: unusedCnt };
         }
+      }
+
+      if (!best.pairs.length) {
+        // Fallback: permitir repeticiones si no hay combinación nueva suficiente
+        let fallback = { pairs: [], fair: Infinity };
+        for (let it = 0; it < ITER; it++) {
+          const arr = baseArr.slice();
+          shuffle(arr);
+          const ps = [];
+          while (arr.length >= 2) ps.push([arr.shift(), arr.shift()]);
+          const tmpCounts = { ...pairCounts };
+          ps.forEach(([x, y]) => {
+            const k = pairKey(x, y);
+            tmpCounts[k] = (tmpCounts[k] || 0) + 1;
+          });
+          let minC = Infinity, maxC = -Infinity;
+          players.forEach((p, i) => {
+            for (let j = i + 1; j < players.length; j++) {
+              const c = tmpCounts[pairKey(p, players[j])] || 0;
+              if (c < minC) minC = c;
+              if (c > maxC) maxC = c;
+            }
+          });
+          const fairness = maxC - minC;
+          if (fairness < fallback.fair) fallback = { pairs: ps, fair: fairness };
+        }
+        best = { pairs: fallback.pairs, score: fallback.fair };
       }
 
       const npos = best.pairs.length + 1;
