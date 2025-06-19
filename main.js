@@ -337,90 +337,37 @@
         solo = baseArr.shift();
       }
 
-      function shuffle(a) {
-        for (let i = a.length - 1; i > 0; i--) {
-          const j = Math.floor(Math.random() * (i + 1));
-          [a[i], a[j]] = [a[j], a[i]];
-        }
-      }
-
-      const allPairKeys = [];
-      players.forEach((p, i) => {
-        for (let j = i + 1; j < players.length; j++) {
-          allPairKeys.push(pairKey(p, players[j]));
-        }
-      });
-      const hasUnused = allPairKeys.some(k => !pairCounts[k]);
-
-      let best = { pairs: [], score: Infinity };
-      const ITER = 800;
-      const pairsNeeded = Math.floor(baseArr.length / 2);
-      for (let it = 0; it < ITER; it++) {
-        const arr = baseArr.slice();
-        shuffle(arr);
-        const ps = [];
-        while (arr.length >= 2) ps.push([arr.shift(), arr.shift()]);
-
-        const unusedCnt = ps.reduce((c, [x, y]) => c + (pairCounts[pairKey(x, y)] ? 0 : 1), 0);
-        if (hasUnused && unusedCnt < pairsNeeded) continue;
-
-        const tmpCounts = { ...pairCounts };
-        ps.forEach(([x, y]) => {
-          const k = pairKey(x, y);
-          tmpCounts[k] = (tmpCounts[k] || 0) + 1;
-        });
-        let minC = Infinity, maxC = -Infinity;
-        players.forEach((p, i) => {
-          for (let j = i + 1; j < players.length; j++) {
-            const c = tmpCounts[pairKey(p, players[j])] || 0;
-            if (c < minC) minC = c;
-            if (c > maxC) maxC = c;
+      const memo = new Map();
+      function search(arr) {
+        const key = arr.slice().sort().join('|');
+        if (memo.has(key)) return memo.get(key);
+        if (arr.length === 0) return { pairs: [], cost: 0 };
+        const [first, ...rest] = arr;
+        let best = { pairs: [], cost: Infinity };
+        for (let i = 0; i < rest.length; i++) {
+          const second = rest[i];
+          const remaining = rest.slice(0, i).concat(rest.slice(i + 1));
+          const k = pairKey(first, second);
+          const c = pairCounts[k] || 0;
+          const res = search(remaining);
+          const cost = res.cost + c;
+          if (cost < best.cost) {
+            best = { pairs: [[first, second], ...res.pairs], cost };
           }
-        });
-        const fairness = maxC - minC;
-        if (fairness < best.score) {
-          best = { pairs: ps, score: fairness, unused: unusedCnt };
-        } else if (fairness === best.score && unusedCnt > (best.unused || 0)) {
-          best = { pairs: ps, score: fairness, unused: unusedCnt };
         }
+        memo.set(key, best);
+        return best;
       }
 
-      if (!best.pairs.length) {
-        // Fallback: permitir repeticiones si no hay combinación nueva suficiente
-        let fallback = { pairs: [], fair: Infinity };
-        for (let it = 0; it < ITER; it++) {
-          const arr = baseArr.slice();
-          shuffle(arr);
-          const ps = [];
-          while (arr.length >= 2) ps.push([arr.shift(), arr.shift()]);
-          const tmpCounts = { ...pairCounts };
-          ps.forEach(([x, y]) => {
-            const k = pairKey(x, y);
-            tmpCounts[k] = (tmpCounts[k] || 0) + 1;
-          });
-          let minC = Infinity, maxC = -Infinity;
-          players.forEach((p, i) => {
-            for (let j = i + 1; j < players.length; j++) {
-              const c = tmpCounts[pairKey(p, players[j])] || 0;
-              if (c < minC) minC = c;
-              if (c > maxC) maxC = c;
-            }
-          });
-          const fairness = maxC - minC;
-          if (fairness < fallback.fair) fallback = { pairs: ps, fair: fairness };
-        }
-        best = { pairs: fallback.pairs, score: fallback.fair };
-      }
-
-      const npos = best.pairs.length + 1;
-      const mean = (npos + 1) / 2;
-      best.pairs.sort((u, v) => {
+      const result = search(baseArr);
+      const mean = ((result.pairs.length + 1) + 1) / 2;
+      result.pairs.sort((u, v) => {
         const du = ((avgOf(u[0]) + avgOf(u[1])) / 2) - mean;
         const dv = ((avgOf(v[0]) + avgOf(v[1])) / 2) - mean;
         return dv - du;
       });
 
-      return { pairs: best.pairs, solo };
+      return { pairs: result.pairs, solo };
     }
 
     /* =================== Mostrar ronda e historial =================== */
