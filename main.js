@@ -341,18 +341,19 @@
       function search(arr) {
         const key = arr.slice().sort().join('|');
         if (memo.has(key)) return memo.get(key);
-        if (arr.length === 0) return { pairs: [], cost: 0 };
+        if (arr.length === 0) return { pairs: [], repeats: 0, cost: 0 };
         const [first, ...rest] = arr;
-        let best = { pairs: [], cost: Infinity };
+        let best = { pairs: [], repeats: Infinity, cost: Infinity };
         for (let i = 0; i < rest.length; i++) {
           const second = rest[i];
           const remaining = rest.slice(0, i).concat(rest.slice(i + 1));
           const k = pairKey(first, second);
-          const c = pairCounts[k] || 0;
+          const cnt = pairCounts[k] || 0;
           const res = search(remaining);
-          const cost = res.cost + c;
-          if (cost < best.cost) {
-            best = { pairs: [[first, second], ...res.pairs], cost };
+          const repeats = res.repeats + (cnt > 0 ? 1 : 0);
+          const cost = res.cost + cnt;
+          if (repeats < best.repeats || (repeats === best.repeats && cost < best.cost)) {
+            best = { pairs: [[first, second], ...res.pairs], repeats, cost };
           }
         }
         memo.set(key, best);
@@ -424,9 +425,12 @@
         matrixTable.innerHTML = '';
         return;
       }
-      const played = new Set();
+      const played = {};
       history.forEach(h => {
-        h.pairs.forEach(([a, b]) => played.add(pairKey(a, b)));
+        h.pairs.forEach(([a, b]) => {
+          const key = pairKey(a, b);
+          played[key] = (played[key] || 0) + 1;
+        });
       });
 
       let html = '<tr><th class="border p-1 bg-gray-200"></th>';
@@ -441,8 +445,8 @@
           if (i === j) {
             html += `<td class='border p-1 bg-gray-50'>—</td>`;
           } else if (i < j) {
-            const ok = played.has(pairKey(p, q));
-            html += `<td class='border p-1 ${ok ? 'bg-green-200/60 text-green-700' : 'bg-red-200/60 text-red-700 font-semibold'}'>${ok ? '✔' : '✖'}</td>`;
+            const count = played[pairKey(p, q)] || 0;
+            html += `<td class='border p-1 ${count ? 'bg-green-200/60 text-green-700' : 'bg-red-200/60 text-red-700 font-semibold'}'>${count}</td>`;
           } else {
             html += `<td class='border p-1 bg-gray-50'></td>`; // triángulo inferior vacío
           }
