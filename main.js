@@ -556,9 +556,7 @@
 
     async function loadHistoryFromDB() {
       if (!currentBirriaId) {
-        history = [];
-        round = 0;
-        save();
+        // Si no hay una birria seleccionada no borrar los datos locales.
         renderHistory();
         updateMatrixTable();
         return;
