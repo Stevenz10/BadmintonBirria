@@ -262,28 +262,31 @@ function renderPlayer(name) {
     });
 
   recentTable.innerHTML = '<tr><th class="border p-2 bg-gray-100">Fecha</th><th class="border p-2 bg-gray-100">Dupla A</th><th class="border p-2 bg-gray-100">Dupla B</th><th class="border p-2 bg-gray-100">Marcador</th><th class="border p-2 bg-gray-100">Ganadores</th></tr>';
+  const selectedBirria = birriaSelect.value;
+  const lastBirriaId = birrias[0]?.id;
   const recent = partidas
     .filter(p => {
       const duoA = [p.dupla_a?.player_a?.name, p.dupla_a?.player_b?.name];
       const duoB = [p.dupla_b?.player_a?.name, p.dupla_b?.player_b?.name];
       if (duoA.includes(SOLO_DUMMY) || duoB.includes(SOLO_DUMMY)) return false;
-      return duoA.includes(name) || duoB.includes(name);
+      const inPlayer = duoA.includes(name) || duoB.includes(name);
+      if (!inPlayer) return false;
+      const bid = p.rondas?.birria_id;
+      if (selectedBirria) return bid === selectedBirria;
+      if (lastBirriaId) return bid === lastBirriaId; // general -> last birria
+      return true;
     })
-    .map(p => {
-      const birria = birrias.find(b => b.id === p.rondas?.birria_id);
-      return {
-        partida: p,
-        date: birria?.play_date,
-        round: p.rondas?.round_num ?? 0
-      };
-    })
+    .map(p => ({
+      partida: p,
+      date: p.rondas?.birrias?.play_date,
+      round: p.rondas?.round_num ?? 0
+    }))
     .sort((a, b) => {
       const d1 = a.date ? new Date(a.date) : new Date(0);
       const d2 = b.date ? new Date(b.date) : new Date(0);
       if (d1.getTime() !== d2.getTime()) return d2 - d1;
       return b.round - a.round;
-    })
-    .slice(0, 20);
+    });
 
   recent.forEach(({ partida: m, date }) => {
     const a1 = m.dupla_a?.player_a?.name;

@@ -555,8 +555,8 @@
     }
 
     async function loadHistoryFromDB() {
-      history = [];
       if (!currentBirriaId) {
+        history = [];
         round = 0;
         save();
         renderHistory();
