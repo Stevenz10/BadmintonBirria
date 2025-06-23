@@ -53,6 +53,8 @@
     const playersMap = {};
     const SOLO_DUMMY = '__SOLO__';
 
+    let matchDraft = JSON.parse(localStorage.getItem('matchDraft') || '{}');
+
     const save = () => {
       localStorage.setItem('players', JSON.stringify(players));
       localStorage.setItem('history', JSON.stringify(history));
@@ -64,6 +66,35 @@
         localStorage.removeItem('currentBirriaId');
       }
     };
+
+    function persistMatchDraft() {
+      localStorage.setItem('matchDraft', JSON.stringify({
+        matchId: selectMatch.value,
+        roundId: selectRound.value,
+        playerA1: playerA1Sel.value,
+        playerA2: playerA2Sel.value,
+        playerB1: playerB1Sel.value,
+        playerB2: playerB2Sel.value,
+        scoreA: scoreAInput.value,
+        scoreB: scoreBInput.value,
+      }));
+    }
+
+    async function restoreMatchDraft() {
+      matchDraft = JSON.parse(localStorage.getItem('matchDraft') || '{}');
+      if (!matchDraft || Object.keys(matchDraft).length === 0) return;
+      if (matchDraft.roundId) {
+        selectRound.value = matchDraft.roundId;
+        await loadDuplas(matchDraft.roundId);
+      }
+      selectMatch.value = matchDraft.matchId || '';
+      playerA1Sel.value = matchDraft.playerA1 || '';
+      playerA2Sel.value = matchDraft.playerA2 || '';
+      playerB1Sel.value = matchDraft.playerB1 || '';
+      playerB2Sel.value = matchDraft.playerB2 || '';
+      scoreAInput.value = matchDraft.scoreA || '';
+      scoreBInput.value = matchDraft.scoreB || '';
+    }
 
     /* =================== Supabase helpers =================== */
     async function getPlayerId(name) {
@@ -782,11 +813,12 @@
     selectRound.onchange = () => {
       const id = selectRound.value;
       if (id) {
-        loadDuplas(id);
+        loadDuplas(id).then(() => persistMatchDraft());
       } else {
         pairTable.innerHTML = '';
         roundTitle.textContent = 'Sin ronda seleccionada';
         selectMatch.innerHTML = '<option value="">Nueva partida</option>';
+        persistMatchDraft();
 
       }
     };
@@ -864,6 +896,8 @@
         playerA2Sel.value = '';
         playerB1Sel.value = '';
         playerB2Sel.value = '';
+        localStorage.removeItem('matchDraft');
+        matchDraft = {};
         await loadMatches(rondaId);
         await refreshStatsFromDB();
         renderPlayers();
@@ -886,6 +920,8 @@
         playerA2Sel.value = '';
         playerB1Sel.value = '';
         playerB2Sel.value = '';
+        localStorage.removeItem('matchDraft');
+        matchDraft = {};
       }
     };
 
@@ -898,6 +934,7 @@
         playerA2Sel.value = '';
         playerB1Sel.value = '';
         playerB2Sel.value = '';
+        persistMatchDraft();
         return;
       }
       const m = matchesData.find(x => x.id === id);
@@ -909,7 +946,14 @@
         scoreAInput.value = m.score_a;
         scoreBInput.value = m.score_b;
       }
+      persistMatchDraft();
     };
+
+    [playerA1Sel, playerA2Sel, playerB1Sel, playerB2Sel].forEach(sel => {
+      sel.onchange = persistMatchDraft;
+    });
+    scoreAInput.oninput = persistMatchDraft;
+    scoreBInput.oninput = persistMatchDraft;
 
     // ===== Supabase Auth =====
     const supabaseUrl = 'https://dqaxkapftyoemlzwbjgx.supabase.co';
@@ -951,6 +995,7 @@
             }
             await refreshStatsFromDB();
             renderPlayers();
+            await restoreMatchDraft();
           } else {
             await refreshStatsFromDB();
             playerSection.classList.add('hidden');
