@@ -15,6 +15,7 @@ const playerInfo = document.getElementById('player-info');
 const duoTable = document.getElementById('duo-table');
 const h2hTable = document.getElementById('h2h-table');
 const tsCanvas = document.getElementById('ts-chart');
+const recentTable = document.getElementById('recent-table');
 const minGamesSelect = document.getElementById('min-games');
 
 let muElo = ELO_INITIAL;
@@ -101,7 +102,7 @@ async function loadPartidas() {
   let query = supa
     .from('partidas')
     .select(`id, score_a, score_b, winner_dupla, ronda_id,
-      rondas!inner(birria_id),
+      rondas!inner(birria_id, round_num, birrias!inner(play_date)),
       dupla_a:dupla_a_id(id, player_a(name), player_b(name)),
       dupla_b:dupla_b_id(id, player_a(name), player_b(name))`);
   const birriaId = birriaSelect.value;
@@ -179,6 +180,7 @@ function renderPlayer(name) {
     playerInfo.textContent = '';
     duoTable.innerHTML = '';
     h2hTable.innerHTML = '';
+    recentTable.innerHTML = '';
     if (tsChart) { tsChart.destroy(); tsChart = null; }
     return;
   }
@@ -258,6 +260,41 @@ function renderPlayer(name) {
       const wr = total ? ((s.wins / total) * 100).toFixed(1) + '%' : '-';
       h2hTable.innerHTML += `<tr><td class='border p-2'>${r}</td><td class='border p-2'>${wr}</td><td class='border p-2'>${s.wins}</td><td class='border p-2'>${s.losses}</td></tr>`;
     });
+
+  recentTable.innerHTML = '<tr><th class="border p-2 bg-gray-100">Fecha</th><th class="border p-2 bg-gray-100">Dupla A</th><th class="border p-2 bg-gray-100">Dupla B</th><th class="border p-2 bg-gray-100">Marcador</th><th class="border p-2 bg-gray-100">Ganadores</th></tr>';
+  const recent = partidas
+    .filter(p => {
+      const duoA = [p.dupla_a?.player_a?.name, p.dupla_a?.player_b?.name];
+      const duoB = [p.dupla_b?.player_a?.name, p.dupla_b?.player_b?.name];
+      if (duoA.includes(SOLO_DUMMY) || duoB.includes(SOLO_DUMMY)) return false;
+      return duoA.includes(name) || duoB.includes(name);
+    })
+    .map(p => {
+      const birria = birrias.find(b => b.id === p.rondas?.birria_id);
+      return {
+        partida: p,
+        date: birria?.play_date,
+        round: p.rondas?.round_num ?? 0
+      };
+    })
+    .sort((a, b) => {
+      const d1 = a.date ? new Date(a.date) : new Date(0);
+      const d2 = b.date ? new Date(b.date) : new Date(0);
+      if (d1.getTime() !== d2.getTime()) return d2 - d1;
+      return b.round - a.round;
+    })
+    .slice(0, 20);
+
+  recent.forEach(({ partida: m, date }) => {
+    const a1 = m.dupla_a?.player_a?.name;
+    const a2 = m.dupla_a?.player_b?.name;
+    const b1 = m.dupla_b?.player_a?.name;
+    const b2 = m.dupla_b?.player_b?.name;
+    const score = `${m.score_a}-${m.score_b}`;
+    const winner = m.winner_dupla === m.dupla_a?.id ? `${a1} & ${a2}` : `${b1} & ${b2}`;
+    const d = date || '';
+    recentTable.innerHTML += `<tr><td class='border p-2'>${d}</td><td class='border p-2'>${a1} & ${a2}</td><td class='border p-2'>${b1} & ${b2}</td><td class='border p-2'>${score}</td><td class='border p-2'>${winner}</td></tr>`;
+  });
 
   if (tsChart) { tsChart.destroy(); }
   if (ratingHistory[name]) {
